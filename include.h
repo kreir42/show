@@ -17,14 +17,11 @@ struct rule{
 	void* data;
 };
 
-//function decides the placement, size for each rule
 void get_size(struct rule* rule, int* y, int* x, int* w, int* h){
 	*y = rule->y;
 	*x = rule->x;
-	if(rule->w<=0) *w = 1001;	//TBD:temporary
-	else *w = rule->w;
-	if(rule->h<=0) *h = 100;	//TBD:temporary
-	else *h = rule->h;
+	*w = rule->w<=0 ? -rule->w : rule->w;
+	*h = rule->h<=0 ? -rule->h : rule->h;
 }
 
 
@@ -32,12 +29,13 @@ void* external_command(void* input){
 	struct rule* rule = input;
 	int y, x, w, h;
 	get_size(rule, &y, &x, &w, &h);
+	w++;	//adds 1 for the NULL terminator
 
 	FILE* fp;
 	char* str = malloc(w*sizeof(char));
 	while(1){
 		fp = popen(rule->data, "r");
-		for(unsigned char i=0; i<h; i++){
+		for(unsigned short i=0; i<h; i++){
 			if(fgets(str, w, fp)==NULL) break;	//exit early if command output ends
 			mvaddstr(y+i, x, str);
 		}

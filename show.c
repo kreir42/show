@@ -21,6 +21,16 @@ static struct rule rules[] = {
 
 static const unsigned char rules_n = sizeof(rules) / sizeof(struct rule);
 
+//decides placement, size of rule outputs
+static void process_rules(){
+	int max_h, max_w;
+	getmaxyx(stdscr, max_h, max_w);
+	for(unsigned char i=0; i<rules_n; i++){
+		if(rules[i].h<=0) rules[i].h = -(max_h - rules[i].y);	//TBD: temporary
+		if(rules[i].w<=0) rules[i].w = -(max_w - rules[i].x);
+	}
+}
+
 static void* input_function(){
 	int c;
 	//create a separate window so getch doesnt bock the update threads
@@ -50,7 +60,7 @@ int main(int argc, char** argv){
 		}else if(!strcmp(argv[i], "--version") || !strcmp(argv[i], "-v")){
 			printf("Version "CURRENT_VERSION"\n");
 		}else{
-			printf("Unknown argument %s\n", argv[i]);
+			printf("Unknown argument %s, use -h or --help for valid arguments\n", argv[i]);
 			return 1;
 		}
 	}
@@ -60,6 +70,8 @@ int main(int argc, char** argv){
 	initscr();	//initialize ncurses
 	noecho();	//don't echo user input
 	curs_set(0);	//set cursor invisible
+
+	process_rules();	//initial processing of rules (automatic sizes)
 
 	//create pthread for input
 	pthread_t input_thread;
