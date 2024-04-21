@@ -8,5 +8,5 @@ all: $(TARGETS)
 clean: $(TARGETS)
 	rm $(TARGETS)
 
-%: %.c
+%: %.c include.h
 	$(CC) $< -o $@ $(LIB)

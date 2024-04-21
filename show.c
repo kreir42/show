@@ -1,34 +1,32 @@
-#define CURRENT_VERSION "0.0"
+#include "include.h"
 
-#include <stdio.h>
-#include <string.h>
-#include <wchar.h>
-#include <ncurses.h>
-#include <pthread.h>
-#include <locale.h>
+//////////////////////
+/////// CONFIG ///////
+//////////////////////
 
-#include<unistd.h>
+#define PROGRAM_LOCALE "en_US.UTF-8"
 
-static void* update_function(){
-	while(1){
-		time_t t = time(NULL);
-		struct tm* tm = localtime(&t);
-		char time_str[40];
+static struct rule rules[] = {
+//	                  |  -1 for auto  |
+//	                   \_______       |
+//	                           |      |
+//	function           y   x    h    w  time (s)
+	timedate,          0,  0,  -1,  -1,       1, "%Y-%m-%d %a %H:%M:%S",
+	external_command,  1,  0,  -1,  -1,     600, "cal",
+};
 
-		setlocale(LC_TIME, "ja_JP.utf8");	//change time locale to japanese
-		strftime(time_str, 40, "%Y-%m-%d %a %H:%M:%S", tm);
-		mvprintw(0, 0, time_str);
-		setlocale(LC_TIME, "");			//change time locate back
+//////////////////////
+//////// CODE ////////
+//////////////////////
 
-		sleep(1);
-	}
-	return NULL;
-}
+static const unsigned char rules_n = sizeof(rules) / sizeof(struct rule);
 
 static void* input_function(){
 	int c;
+	//create a separate window so getch doesnt bock the update threads
+	WINDOW* window = newwin(1,1,0,0);
 	while(1){
-		c=getch();
+		c=wgetch(window);
 		switch(c){
 			case 'q':
 			case 'Q':
@@ -39,6 +37,7 @@ static void* input_function(){
 		}
 	}
 	while_end:
+	endwin();
 	return NULL;
 }
 
@@ -57,20 +56,27 @@ int main(int argc, char** argv){
 	}
 
 	//initialize program
-	setlocale(LC_ALL, "en_US.UTF-8");	//so that unicode characters work
+	setlocale(LC_ALL, PROGRAM_LOCALE);	//so that unicode characters work
 	initscr();	//initialize ncurses
 	noecho();	//don't echo user input
 	curs_set(0);	//set cursor invisible
-	nodelay(stdscr,TRUE);	//make getch() non-blocking
 
-	//create pthreads
-	pthread_t input_thread, update_thread;
+	//create pthread for input
+	pthread_t input_thread;
 	pthread_create(&input_thread, NULL, input_function, NULL);
-	pthread_create(&update_thread, NULL, update_function, NULL);
+	//create a pthread per rule
+	pthread_t update_threads[rules_n];
+	for(unsigned char i=0; i<rules_n; i++){
+		pthread_create(&update_threads[i], NULL, rules[i].function, &rules[i]);
+	}
 
 	pthread_join(input_thread, NULL);	//wait for input thread to return
-	pthread_cancel(update_thread);	//cancel update thread
-	pthread_join(update_thread, NULL);	//wait for update thread to cancel
+	for(unsigned char i=0; i<rules_n; i++){	//cancel all threads
+		pthread_cancel(update_threads[i]);
+	}
+	for(unsigned char i=0; i<rules_n; i++){	//wait for update threads to cancel
+		pthread_join(update_threads[i], NULL);
+	}
 	endwin();	//close ncurses
 	return 0;
 }
