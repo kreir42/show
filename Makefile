@@ -5,7 +5,7 @@ TARGETS := $(patsubst %.c,%,$(wildcard *.c))
 
 all: $(TARGETS)
 
-clean: $(TARGETS)
+clean:
 	rm $(TARGETS)
 
 %: %.c include.h
