@@ -11,8 +11,9 @@ static struct rule rules[] = {
 //	                   \_______       |
 //	                           |      |
 //	function           y   x    h    w  time (s)
-	timedate,          0,  0,  -1,  -1,       1, "%Y-%m-%d %a %H:%M:%S",
-	external_command,  1,  0,  -1,  -1,     600, "cal",
+	timedate,          0, 12,   1,  23,       1, "%Y-%m-%d %a %H:%M:%S",
+	external_command,  1,  0,   8,  43,      15, "cal -m -n 2 --color=never",
+	external_command, 20,  0,   8,   5,       1, "echo 12345 && echo 1234567890",
 };
 
 //////////////////////
@@ -21,14 +22,42 @@ static struct rule rules[] = {
 
 static const unsigned char rules_n = sizeof(rules) / sizeof(struct rule);
 
-//decides placement, size of rule outputs
-static void process_rules(){
+
+static void* update_function(){
+	//initial setup
 	int max_h, max_w;
+	WINDOW* windows[rules_n];
 	getmaxyx(stdscr, max_h, max_w);
 	for(unsigned char i=0; i<rules_n; i++){
-		if(rules[i].h<=0) rules[i].h = -(max_h - rules[i].y);	//TBD: temporary
-		if(rules[i].w<=0) rules[i].w = -(max_w - rules[i].x);
+		if(rules[i].h<1) rules[i].h = -(max_h - rules[i].y);	//TBD: temporary
+		if(rules[i].w<1) rules[i].w = -(max_w - rules[i].x);
+		windows[i] = newwin(rules[i].h>0?rules[i].h:-rules[i].h, rules[i].w>0?rules[i].w:-rules[i].w, rules[i].y, rules[i].x);
 	}
+//	draw_box(0, 0, max_h, max_w);
+//	refresh();
+//	doupdate();
+
+	unsigned int time_to_sleep = 0;
+	unsigned int times_left[rules_n];
+	memset(times_left, 0, rules_n*sizeof(times_left[0]));
+	//main loop
+	while(1){
+		for(unsigned char i=0; i<rules_n; i++){
+			times_left[i] -= time_to_sleep;
+			if(times_left[i] == 0){
+				rules[i].function(&rules[i], windows[i]);
+				wrefresh(windows[i]);
+				times_left[i] = rules[i].time;
+			}
+		}
+		//find min time, then sleep
+		time_to_sleep = times_left[0];
+		for(unsigned char i=1; i<rules_n; i++){
+			if(times_left[i] < time_to_sleep) time_to_sleep = times_left[i];
+		}
+		sleep(time_to_sleep);
+	}
+	return NULL;
 }
 
 static void* input_function(){
@@ -71,23 +100,17 @@ int main(int argc, char** argv){
 	noecho();	//don't echo user input
 	curs_set(0);	//set cursor invisible
 
-	process_rules();	//initial processing of rules (automatic sizes)
-
+	pthread_t input_thread, update_thread;
 	//create pthread for input
-	pthread_t input_thread;
 	pthread_create(&input_thread, NULL, input_function, NULL);
-	//create a pthread per rule
-	pthread_t update_threads[rules_n];
-	for(unsigned char i=0; i<rules_n; i++){
-		pthread_create(&update_threads[i], NULL, rules[i].function, &rules[i]);
-	}
+	//create a pthread to run the rules
+	pthread_create(&update_thread, NULL, update_function, NULL);
 
 	pthread_join(input_thread, NULL);	//wait for input thread to return
-	for(unsigned char i=0; i<rules_n; i++){	//cancel all threads
-		pthread_cancel(update_threads[i]);
-	}
-	for(unsigned char i=0; i<rules_n; i++){	//wait for update threads to cancel
-		pthread_join(update_threads[i], NULL);
+	pthread_cancel(update_thread);
+	pthread_join(update_thread, NULL);
+	for(unsigned char i=0; i<rules_n; i++){	//close all windows
+		endwin();
 	}
 	endwin();	//close ncurses
 	return 0;
