@@ -46,8 +46,18 @@ void external_command(struct rule* rule, WINDOW* window){
 
 	char* str = malloc(w*sizeof(char));
 	FILE* fp = popen(rule->data, "r");
+	unsigned short last;
 	for(unsigned short i=0; i<h; i++){
 		if(fgets(str, w, fp)==NULL) break;	//exit early if command output ends
+		//if last char is a newline, remove
+		last = strlen(str)-1;
+		if(str[last]=='\n'){
+			str[last] = '\0';
+			if(last==0){	//first and only char was a newline
+				i--;
+				continue;
+			}
+		}
 		mvwaddstr(window, i, 0, str);
 	}
 	pclose(fp);

@@ -11,9 +11,8 @@ static struct rule rules[] = {
 //	                   \_______       |
 //	                           |      |
 //	function           y   x    h    w  time (s)
-	timedate,          0, 12,   1,  23,       1, "%Y-%m-%d %a %H:%M:%S",
-	external_command,  1,  0,   8,  43,      15, "cal -m -n 2 --color=never",
-	external_command, 20,  0,   8,   5,       1, "echo 12345 && echo 1234567890",
+	timedate,          0, 10,   1,  23,       1, "%Y-%m-%d %a %H:%M:%S",
+	external_command,  1,  0,   8,  42,    5*60, "cal -m -n 2 --color=never",
 };
 
 //////////////////////
