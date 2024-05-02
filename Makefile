@@ -1,5 +1,6 @@
 CC      := gcc
-LIB     := -lncursesw -lpthread
+LIB     := -lpthread $(shell pkg-config --libs notcurses)
+CFLAGS  := $(shell pkg-config --cflags notcurses)
 #Put all names of .c files into TARGETS variable after removing the .c
 TARGETS := $(patsubst %.c,%,$(wildcard *.c))
 
@@ -9,4 +10,4 @@ clean:
 	rm $(TARGETS)
 
 %: %.c include.h
-	$(CC) $< -o $@ $(LIB)
+	$(CC) $< -o $@ $(LIB) $(CFLAGS)

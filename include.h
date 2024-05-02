@@ -3,15 +3,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <wchar.h>
-#include <ncurses.h>
 #include <pthread.h>
 #include <locale.h>
 #include <stdlib.h>
+#include <notcurses/notcurses.h>
 
 #include <unistd.h>
 
 struct rule{
-	void (*function)(struct rule*, WINDOW*);	//function that will run the rule
+	void (*function)(struct rule*, struct ncplane*);	//function that will run the rule
 	int y, x;	//top-left corner position
 	int h, w;
 	int time;
@@ -19,16 +19,16 @@ struct rule{
 };
 
 void draw_box(int y, int x, int h, int w){
-	//corners
-	mvaddch(    y,     x, ACS_ULCORNER);
-	mvaddch(    y, w-1+x, ACS_URCORNER);
-	mvaddch(h-1+y,     x, ACS_LLCORNER);
-	mvaddch(h-1+y, w-1+x, ACS_LRCORNER);
-	//sides
-	mvhline(    y,   1+x, ACS_HLINE, w-2);
-	mvhline(h-1+y,   1+x, ACS_HLINE, w-2);
-	mvvline(  1+y,     x, ACS_VLINE, h-2);
-	mvvline(  1+y, w-1+x, ACS_VLINE, h-2);
+//	//corners
+//	mvaddch(    y,     x, ACS_ULCORNER);
+//	mvaddch(    y, w-1+x, ACS_URCORNER);
+//	mvaddch(h-1+y,     x, ACS_LLCORNER);
+//	mvaddch(h-1+y, w-1+x, ACS_LRCORNER);
+//	//sides
+//	mvhline(    y,   1+x, ACS_HLINE, w-2);
+//	mvhline(h-1+y,   1+x, ACS_HLINE, w-2);
+//	mvvline(  1+y,     x, ACS_VLINE, h-2);
+//	mvvline(  1+y, w-1+x, ACS_VLINE, h-2);
 }
 
 void get_size(struct rule* rule, int* y, int* x, int* h, int* w){
@@ -39,7 +39,7 @@ void get_size(struct rule* rule, int* y, int* x, int* h, int* w){
 }
 
 
-void external_command(struct rule* rule, WINDOW* window){
+void external_command(struct rule* rule, struct ncplane* plane){
 	int y, x, h, w;
 	get_size(rule, &y, &x, &h, &w);
 	w++;	//+1 for the NULL terminator
@@ -58,12 +58,12 @@ void external_command(struct rule* rule, WINDOW* window){
 				continue;
 			}
 		}
-		mvwaddstr(window, i, 0, str);
+		ncplane_putstr_yx(plane, i, 0, str);
 	}
 	pclose(fp);
 }
 
-void timedate(struct rule* rule, WINDOW* window){
+void timedate(struct rule* rule, struct ncplane* plane){
 	int y, x, h, w;
 	get_size(rule, &y, &x, &h, &w);
 	w++;	//+1 for the NULL terminator
@@ -72,5 +72,5 @@ void timedate(struct rule* rule, WINDOW* window){
 	time_t t = time(NULL);
 	struct tm* tm = localtime(&t);
 	strftime(str, w, rule->data, tm);
-	mvwprintw(window, 0, 0, str);
+	ncplane_putstr_yx(plane, 0, 0, str);
 }

@@ -12,7 +12,7 @@ static struct rule rules[] = {
 //	                           |      |
 //	function           y   x    h    w  time (s)
 	timedate,          0, 10,   1,  23,       1, "%Y-%m-%d %a %H:%M:%S",
-	external_command,  1,  0,   8,  42,    5*60, "cal -m -n 2 --color=never",
+	external_command,  1,  0,   8,  42,       2, "cal -m -n 2 --color=never",
 };
 
 //////////////////////
@@ -21,31 +21,38 @@ static struct rule rules[] = {
 
 static const unsigned char rules_n = sizeof(rules) / sizeof(struct rule);
 
+static struct notcurses* nc;	//notcurses program
 
 static void* update_function(){
 	//initial setup
-	int max_h, max_w;
-	WINDOW* windows[rules_n];
-	getmaxyx(stdscr, max_h, max_w);
+	struct ncplane* planes[rules_n];
+	struct ncplane_options plane_options = {};
+	unsigned int max_h, max_w;
+	notcurses_stddim_yx(nc, &max_h, &max_w);
 	for(unsigned char i=0; i<rules_n; i++){
 		if(rules[i].h<1) rules[i].h = -(max_h - rules[i].y);	//TBD: temporary
 		if(rules[i].w<1) rules[i].w = -(max_w - rules[i].x);
-		windows[i] = newwin(rules[i].h>0?rules[i].h:-rules[i].h, rules[i].w>0?rules[i].w:-rules[i].w, rules[i].y, rules[i].x);
+		//set notcurses panel options
+		plane_options.y = rules[i].y;
+		plane_options.x = rules[i].x;
+		plane_options.rows = rules[i].h>0?rules[i].h:-rules[i].h;
+		plane_options.cols = rules[i].w>0?rules[i].w:-rules[i].w;
+		planes[i] = ncplane_create(notcurses_stdplane(nc), &plane_options);	//create panel in a new pile, necessary for safe multithreading
+//		planes[i] = ncpile_create(nc, &plane_options);	//create panel in a new pile, necessary for safe multithreading
 	}
 //	draw_box(0, 0, max_h, max_w);
-//	refresh();
-//	doupdate();
 
 	unsigned int time_to_sleep = 0;
 	unsigned int times_left[rules_n];
 	memset(times_left, 0, rules_n*sizeof(times_left[0]));
-	//main loop
+//	//main loop
 	while(1){
 		for(unsigned char i=0; i<rules_n; i++){
 			times_left[i] -= time_to_sleep;
 			if(times_left[i] == 0){
-				rules[i].function(&rules[i], windows[i]);
-				wrefresh(windows[i]);
+				rules[i].function(&rules[i], planes[i]);
+				ncpile_render(planes[i]);
+				ncpile_rasterize(planes[i]);
 				times_left[i] = rules[i].time;
 			}
 		}
@@ -60,23 +67,19 @@ static void* update_function(){
 }
 
 static void* input_function(){
-	int c;
+	uint32_t c;
 	//create a separate window so getch doesnt bock the update threads
-	WINDOW* window = newwin(1,1,0,0);
 	while(1){
-		c=wgetch(window);
+		c=notcurses_get(nc, NULL, NULL);
 		switch(c){
 			case 'q':
 			case 'Q':
-				goto while_end;
+				return NULL;
 			case 10:
 			case ' ':
 				//TBD: update
 		}
 	}
-	while_end:
-	endwin();
-	return NULL;
 }
 
 int main(int argc, char** argv){
@@ -94,10 +97,8 @@ int main(int argc, char** argv){
 	}
 
 	//initialize program
-	setlocale(LC_ALL, PROGRAM_LOCALE);	//so that unicode characters work
-	initscr();	//initialize ncurses
-	noecho();	//don't echo user input
-	curs_set(0);	//set cursor invisible
+	setlocale(LC_ALL, PROGRAM_LOCALE);	//necessary for notcurses
+	nc = notcurses_init(NULL, NULL);	//initialize notcurses
 
 	pthread_t input_thread, update_thread;
 	//create pthread for input
@@ -108,9 +109,5 @@ int main(int argc, char** argv){
 	pthread_join(input_thread, NULL);	//wait for input thread to return
 	pthread_cancel(update_thread);
 	pthread_join(update_thread, NULL);
-	for(unsigned char i=0; i<rules_n; i++){	//close all windows
-		endwin();
-	}
-	endwin();	//close ncurses
-	return 0;
+	return notcurses_stop(nc);	//close notcurses, return 0 if success
 }
