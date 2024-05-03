@@ -1,6 +1,7 @@
+//#define USE_NOTCURSES
+
 #include "include.h"
 
-//#define USE_NOTCURSES
 #define PROGRAM_LOCALE ""
 #define REFRESH_MICROSECONDS 200000
 
