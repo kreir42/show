@@ -6,7 +6,11 @@
 #include <pthread.h>
 #include <locale.h>
 #include <stdlib.h>
+#ifdef USE_NOTCURSES
 #include <notcurses/notcurses.h>
+#else
+#include <ncurses.h>
+#endif
 
 #include <unistd.h>
 
@@ -15,21 +19,28 @@ struct rule{
 	int y, x;	//top-left corner position
 	int h, w;
 	int time;
+#ifdef USE_NOTCURSES
 	struct ncplane* plane;
+#else
+	WINDOW* window;
+#endif
 	void* data;
 };
 
 void draw_box(int y, int x, int h, int w){
+#ifdef USE_NOTCURSES
+#else
 //	//corners
-//	mvaddch(    y,     x, ACS_ULCORNER);
-//	mvaddch(    y, w-1+x, ACS_URCORNER);
-//	mvaddch(h-1+y,     x, ACS_LLCORNER);
-//	mvaddch(h-1+y, w-1+x, ACS_LRCORNER);
+	mvaddch(    y,     x, ACS_ULCORNER);
+	mvaddch(    y, w-1+x, ACS_URCORNER);
+	mvaddch(h-1+y,     x, ACS_LLCORNER);
+	mvaddch(h-1+y, w-1+x, ACS_LRCORNER);
 //	//sides
-//	mvhline(    y,   1+x, ACS_HLINE, w-2);
-//	mvhline(h-1+y,   1+x, ACS_HLINE, w-2);
-//	mvvline(  1+y,     x, ACS_VLINE, h-2);
-//	mvvline(  1+y, w-1+x, ACS_VLINE, h-2);
+	mvhline(    y,   1+x, ACS_HLINE, w-2);
+	mvhline(h-1+y,   1+x, ACS_HLINE, w-2);
+	mvvline(  1+y,     x, ACS_VLINE, h-2);
+	mvvline(  1+y, w-1+x, ACS_VLINE, h-2);
+#endif
 }
 
 void get_size(struct rule* rule, int* y, int* x, int* h, int* w){
@@ -62,9 +73,17 @@ void* external_command(void* input){
 					continue;
 				}
 			}
+#ifdef USE_NOTCURSES
 			ncplane_putstr_yx(rule->plane, i, 0, str);
+#else
+			mvwaddstr(rule->window, i, 0, str);
+#endif
 		}
 		pclose(fp);
+#ifdef USE_NOTCURSES
+#else
+		wnoutrefresh(rule->window);
+#endif
 		sleep(rule->time);
 	}
 	return NULL;
@@ -83,7 +102,12 @@ void* timedate(void* input){
 		t = time(NULL);
 		tm = localtime(&t);
 		strftime(str, w, rule->data, tm);
+#ifdef USE_NOTCURSES
 		ncplane_putstr_yx(rule->plane, 0, 0, str);
+#else
+		mvwaddstr(rule->window, 0, 0, str);
+		wnoutrefresh(rule->window);
+#endif
 		sleep(rule->time);
 	}
 	return NULL;
