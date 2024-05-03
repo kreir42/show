@@ -11,10 +11,11 @@
 #include <unistd.h>
 
 struct rule{
-	void (*function)(struct rule*, struct ncplane*);	//function that will run the rule
+	void* (*function)(void* input);	//function that will run the rule
 	int y, x;	//top-left corner position
 	int h, w;
 	int time;
+	struct ncplane* plane;
 	void* data;
 };
 
@@ -39,38 +40,51 @@ void get_size(struct rule* rule, int* y, int* x, int* h, int* w){
 }
 
 
-void external_command(struct rule* rule, struct ncplane* plane){
+void* external_command(void* input){
+	struct rule* rule = input;
 	int y, x, h, w;
 	get_size(rule, &y, &x, &h, &w);
 	w++;	//+1 for the NULL terminator
 
 	char* str = malloc(w*sizeof(char));
-	FILE* fp = popen(rule->data, "r");
+	FILE* fp;
 	unsigned short last;
-	for(unsigned short i=0; i<h; i++){
-		if(fgets(str, w, fp)==NULL) break;	//exit early if command output ends
-		//if last char is a newline, remove
-		last = strlen(str)-1;
-		if(str[last]=='\n'){
-			str[last] = '\0';
-			if(last==0){	//first and only char was a newline
-				i--;
-				continue;
+	while(1){
+		fp = popen(rule->data, "r");
+		for(unsigned short i=0; i<h; i++){
+			if(fgets(str, w, fp)==NULL) break;	//exit early if command output ends
+			//if last char is a newline, remove
+			last = strlen(str)-1;
+			if(str[last]=='\n'){
+				str[last] = '\0';
+				if(last==0){	//first and only char was a newline
+					i--;
+					continue;
+				}
 			}
+			ncplane_putstr_yx(rule->plane, i, 0, str);
 		}
-		ncplane_putstr_yx(plane, i, 0, str);
+		pclose(fp);
+		sleep(rule->time);
 	}
-	pclose(fp);
+	return NULL;
 }
 
-void timedate(struct rule* rule, struct ncplane* plane){
+void* timedate(void* input){
+	struct rule* rule = input;
 	int y, x, h, w;
 	get_size(rule, &y, &x, &h, &w);
 	w++;	//+1 for the NULL terminator
 
 	char* str = malloc(w*sizeof(char));
-	time_t t = time(NULL);
-	struct tm* tm = localtime(&t);
-	strftime(str, w, rule->data, tm);
-	ncplane_putstr_yx(plane, 0, 0, str);
+	time_t t;
+	struct tm* tm;
+	while(1){
+		t = time(NULL);
+		tm = localtime(&t);
+		strftime(str, w, rule->data, tm);
+		ncplane_putstr_yx(rule->plane, 0, 0, str);
+		sleep(rule->time);
+	}
+	return NULL;
 }
