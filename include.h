@@ -1,4 +1,4 @@
-#define CURRENT_VERSION "0.0"
+#define CURRENT_VERSION "0.1"
 
 #include <stdio.h>
 #include <string.h>
@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <locale.h>
 #include <stdlib.h>
+
 #ifdef USE_NOTCURSES
 #include <notcurses/notcurses.h>
 #else
