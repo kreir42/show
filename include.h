@@ -52,6 +52,7 @@ void get_size(struct rule* rule, int* y, int* x, int* h, int* w){
 }
 
 
+//shows the result of a shell command
 void* external_command(void* input){
 	struct rule* rule = input;
 	int y, x, h, w;
@@ -90,6 +91,7 @@ void* external_command(void* input){
 	return NULL;
 }
 
+//shows the date and time in a user-configured string
 void* timedate(void* input){
 	struct rule* rule = input;
 	int y, x, h, w;

@@ -90,7 +90,18 @@ int main(int argc, char** argv){
 	struct notcurses_options opts = {
 		.flags = NCOPTION_SUPPRESS_BANNERS,
 	};
-	nc = notcurses_core_init(&opts, NULL);	//initialize notcurses
+	nc = notcurses_init(&opts, NULL);	//initialize notcurses
+#ifdef BACKGROUND
+	struct ncvisual* background_visual = ncvisual_from_file(BACKGROUND);
+	struct ncvisual_options ncvisual_options = {
+		.n = notcurses_stdplane(nc),
+		.scaling = NCSCALE_SCALE,
+		.y = NCALIGN_CENTER, .x = NCALIGN_CENTER,
+		.blitter = BACKGROUND_BLIT,
+		.flags = NCVISUAL_OPTION_HORALIGNED|NCVISUAL_OPTION_VERALIGNED | NCVISUAL_OPTION_CHILDPLANE,
+	};
+	struct ncplane* background_plane = ncvisual_blit(nc, background_visual, &ncvisual_options);
+#endif
 #else
 	initscr();
 	noecho();
@@ -121,6 +132,7 @@ int main(int argc, char** argv){
 		pthread_join(rule_threads[i], NULL);
 	}
 #ifdef USE_NOTCURSES
+	notcurses_drop_planes(nc);
 	return notcurses_stop(nc);	//close notcurses, return 0 if success
 #else
 	for(unsigned char i=0; i<rules_n; i++){

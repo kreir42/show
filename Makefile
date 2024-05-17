@@ -4,8 +4,8 @@ CFLAGS :=
 #Put all names of .config files into TARGETS variable after removing the .config
 TARGETS := $(patsubst %.config.c,%,$(wildcard *.config.c))
 
-NOTCURSES_LIB := $(shell pkg-config --libs notcurses-core)
-NOTCURSES_CFLAGS := $(shell pkg-config --cflags notcurses-core)
+NOTCURSES_LIB := $(shell pkg-config --libs notcurses)
+NOTCURSES_CFLAGS := $(shell pkg-config --cflags notcurses)
 
 NCURSES_LIB := $(shell pkg-config --libs ncursesw)
 NCURSES_CFLAGS := $(shell pkg-config --cflags ncursesw)

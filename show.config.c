@@ -1,4 +1,6 @@
-//#define USE_NOTCURSES
+#define USE_NOTCURSES
+#define BACKGROUND "background.png"
+#define BACKGROUND_BLIT NCBLIT_DEFAULT
 
 #include "include.h"
 
@@ -10,8 +12,8 @@ static struct rule rules[] = {
 //	                   \_______       |
 //	                           |      |
 //	function           y   x    h    w  time (s) NULL
-	timedate,          0, 10,   1,  23,       1, NULL, "%Y-%m-%d %a %H:%M:%S",
-	external_command,  1,  0,   8,  42,       5, NULL, "cal -m -n 2 --color=never",
+	timedate,         30,130,   1,  23,       1, NULL, "%Y-%m-%d %a %H:%M:%S",
+	external_command, 31,120,   8,  42,       5, NULL, "cal -m -n 2 --color=never",
 };
 
 #include "show.h"
