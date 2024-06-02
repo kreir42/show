@@ -25,6 +25,9 @@ struct rule{
 #else
 	WINDOW* window;
 #endif
+	int_least8_t flags;
+		#define CENTER_Y	1
+		#define CENTER_X	2
 	void* data;
 };
 

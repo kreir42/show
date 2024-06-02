@@ -7,21 +7,38 @@ static struct notcurses* nc;	//notcurses program
 static void process_rules(){
 	unsigned int max_h, max_w;
 #ifdef USE_NOTCURSES
-	struct ncplane_options plane_options = {};
 	notcurses_stddim_yx(nc, &max_h, &max_w);
+	int move_y, move_x;
 #else
 	getmaxyx(stdscr, max_h, max_w);
 #endif
 	for(unsigned char i=0; i<rules_n; i++){
+		struct ncplane_options plane_options = {};
 		if(rules[i].h<1) rules[i].h = -(max_h - rules[i].y);	//TBD: temporary
 		if(rules[i].w<1) rules[i].w = -(max_w - rules[i].x);
 #ifdef USE_NOTCURSES
 		//set notcurses plane options
-		plane_options.y = rules[i].y;
-		plane_options.x = rules[i].x;
+		if(rules[i].flags&CENTER_Y){
+			move_y = rules[i].y;
+			plane_options.y = NCALIGN_CENTER;
+			plane_options.flags |= NCPLANE_OPTION_VERALIGNED;
+		}else{
+			move_y = 0;
+			plane_options.y = rules[i].y;
+		}
+		if(rules[i].flags&CENTER_X){
+			move_x = rules[i].x;
+			plane_options.x = NCALIGN_CENTER;
+			plane_options.flags |= NCPLANE_OPTION_HORALIGNED;
+		}else{
+			move_x = 0;
+			plane_options.x = rules[i].x;
+		}
 		plane_options.rows = rules[i].h>0?rules[i].h:-rules[i].h;
 		plane_options.cols = rules[i].w>0?rules[i].w:-rules[i].w;
 		rules[i].plane = ncplane_create(notcurses_stdplane(nc), &plane_options);	//create plane
+		ncplane_move_rel(rules[i].plane, move_y, move_x);
+		ncplane_set_bg_alpha(rules[i].plane, NCALPHA_TRANSPARENT);
 #else
 		rules[i].window = newwin(rules[i].h>0?rules[i].h:-rules[i].h, rules[i].w>0?rules[i].w:-rules[i].w, rules[i].y, rules[i].x);
 #endif

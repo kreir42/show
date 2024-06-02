@@ -11,9 +11,9 @@ static struct rule rules[] = {
 //	                  |  -1 for auto  |
 //	                   \_______       |
 //	                           |      |
-//	function           y   x    h    w  time (s) NULL
-	timedate,         30,130,   1,  23,       1, NULL, "%Y-%m-%d %a %H:%M:%S",
-	external_command, 31,120,   8,  42,       5, NULL, "cal -m -n 2 --color=never",
+//	function           y   x    h    w  time (s) NULL  flags
+	timedate,         -5,  0,   1,  23,       1, NULL, CENTER_Y|CENTER_X, "%Y-%m-%d %a %H:%M:%S",
+	external_command,  0,  0,   8,  42,       5, NULL, CENTER_Y|CENTER_X, "cal -m -n 2 --color=never",
 };
 
 #include "show.h"
