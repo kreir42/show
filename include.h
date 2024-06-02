@@ -47,20 +47,11 @@ void draw_box(int y, int x, int h, int w){
 #endif
 }
 
-void get_size(struct rule* rule, int* y, int* x, int* h, int* w){
-	*y = rule->y;
-	*x = rule->x;
-	*h = rule->h<=0 ? -rule->h : rule->h;
-	*w = rule->w<=0 ? -rule->w : rule->w;
-}
-
-
 //shows the result of a shell command
 void* external_command(void* input){
 	struct rule* rule = input;
-	int y, x, h, w;
-	get_size(rule, &y, &x, &h, &w);
-	w++;	//+1 for the NULL terminator
+	int h = rule->h;
+	int w = rule->w+1;	//+1 for the NULL terminator
 
 	char* str = malloc(w*sizeof(char));
 	FILE* fp;
@@ -97,9 +88,7 @@ void* external_command(void* input){
 //shows the date and time in a user-configured string
 void* timedate(void* input){
 	struct rule* rule = input;
-	int y, x, h, w;
-	get_size(rule, &y, &x, &h, &w);
-	w++;	//+1 for the NULL terminator
+	int w = rule->w+1;	//+1 for the NULL terminator
 
 	char* str = malloc(w*sizeof(char));
 	time_t t;
