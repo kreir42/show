@@ -1,4 +1,4 @@
-//#define USE_NOTCURSES
+#define USE_NOTCURSES
 #define BACKGROUND "background.png"
 #define BACKGROUND_BLIT NCBLIT_DEFAULT
 
