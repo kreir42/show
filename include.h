@@ -9,6 +9,7 @@
 
 #ifdef USE_NOTCURSES
 #include <notcurses/notcurses.h>
+extern struct notcurses* nc;
 #else
 #include <ncurses.h>
 #endif
@@ -17,8 +18,8 @@
 
 struct rule{
 	void* (*function)(void* input);	//function that will run the rule
-	int y, x;	//top-left corner position
-	int h, w;
+	float y, x;	//top-left corner position
+	float h, w;
 	int time;
 #ifdef USE_NOTCURSES
 	struct ncplane* plane;
@@ -26,8 +27,15 @@ struct rule{
 	WINDOW* window;
 #endif
 	int_least8_t flags;
-		#define CENTER_Y	1
-		#define CENTER_X	2
+		#define CENTER_Y	 1
+		#define CENTER_X	 2
+		#define RELATIVE_Y_POS	 4
+		#define RELATIVE_X_POS	 8
+		#define RELATIVE_Y_SIZE	16
+		#define RELATIVE_X_SIZE	32
+		#define CENTER		CENTER_Y|CENTER_X
+		#define RELATIVE_POS	RELATIVE_Y_POS|RELATIVE_X_POS
+		#define RELATIVE_SIZE	RELATIVE_Y_SIZE|RELATIVE_X_SIZE
 	void* data;
 };
 
@@ -47,11 +55,25 @@ void draw_box(int y, int x, int h, int w){
 #endif
 }
 
+static void get_size(struct rule* rule, int* h, int* w){
+	unsigned int max_h, max_w;
+#ifdef USE_NOTCURSES
+	notcurses_stddim_yx(nc, &max_h, &max_w);
+#else
+	getmaxyx(stdscr, max_h, max_w);
+#endif
+	if(rule->flags&RELATIVE_Y_SIZE) *h = rule->h*max_h;
+	else *h = rule->h;
+	if(rule->flags&RELATIVE_X_SIZE) *w = rule->w*max_w;
+	else *w = rule->w;
+}
+
 //shows the result of a shell command
 void* external_command(void* input){
 	struct rule* rule = input;
-	int h = rule->h;
-	int w = rule->w+1;	//+1 for the NULL terminator
+	int h, w;
+	get_size(rule, &h, &w);
+	w++;	//+1 for the NULL terminator
 
 	char* str = malloc(w*sizeof(char));
 	FILE* fp;
@@ -88,7 +110,9 @@ void* external_command(void* input){
 //shows the date and time in a user-configured string
 void* timedate(void* input){
 	struct rule* rule = input;
-	int w = rule->w+1;	//+1 for the NULL terminator
+	int h, w;
+	get_size(rule, &h, &w);
+	w++;	//+1 for the NULL terminator
 
 	char* str = malloc(w*sizeof(char));
 	time_t t;

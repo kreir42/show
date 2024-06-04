@@ -1,55 +1,55 @@
 static const unsigned char rules_n = sizeof(rules) / sizeof(struct rule);
 
 #ifdef USE_NOTCURSES
-static struct notcurses* nc;	//notcurses program
+struct notcurses* nc;	//notcurses program
 #endif
 
 static void process_rules(){
 	unsigned int max_h, max_w;
+	int y, x, h, w;
 #ifdef USE_NOTCURSES
 	int move_y, move_x;
 	notcurses_stddim_yx(nc, &max_h, &max_w);
 #else
-	int win_y, win_x;
 	getmaxyx(stdscr, max_h, max_w);
 #endif
 	for(unsigned char i=0; i<rules_n; i++){
+		if(rules[i].flags&RELATIVE_Y_POS) y = rules[i].y*max_h;
+		else y = rules[i].y;
+		if(rules[i].flags&RELATIVE_X_POS) x = rules[i].x*max_w;
+		else x = rules[i].x;
+		if(rules[i].flags&RELATIVE_Y_SIZE) h = rules[i].h*max_h;
+		else h = rules[i].h;
+		if(rules[i].flags&RELATIVE_X_SIZE) w = rules[i].w*max_w;
+		else w = rules[i].w;
 #ifdef USE_NOTCURSES
 		struct ncplane_options plane_options = {};
 		//set notcurses plane options
 		if(rules[i].flags&CENTER_Y){
-			move_y = rules[i].y;
+			move_y = y;
 			plane_options.y = NCALIGN_CENTER;
 			plane_options.flags |= NCPLANE_OPTION_VERALIGNED;
 		}else{
 			move_y = 0;
-			plane_options.y = rules[i].y;
+			plane_options.y = y;
 		}
 		if(rules[i].flags&CENTER_X){
-			move_x = rules[i].x;
+			move_x = x;
 			plane_options.x = NCALIGN_CENTER;
 			plane_options.flags |= NCPLANE_OPTION_HORALIGNED;
 		}else{
 			move_x = 0;
-			plane_options.x = rules[i].x;
+			plane_options.x = x;
 		}
-		plane_options.rows = rules[i].h;
-		plane_options.cols = rules[i].w;
+		plane_options.rows = h;
+		plane_options.cols = w;
 		rules[i].plane = ncplane_create(notcurses_stdplane(nc), &plane_options);	//create plane
 		ncplane_move_rel(rules[i].plane, move_y, move_x);
 		ncplane_set_bg_alpha(rules[i].plane, NCALPHA_TRANSPARENT);
 #else
-		if(rules[i].flags&CENTER_Y){
-			win_y = (max_h-rules[i].h)/2 + rules[i].y;
-		}else{
-			win_y = rules[i].y;
-		}
-		if(rules[i].flags&CENTER_X){
-			win_x = (max_w-rules[i].w)/2 + rules[i].x;
-		}else{
-			win_x = rules[i].x;
-		}
-		rules[i].window = newwin(rules[i].h, rules[i].w, win_y, win_x);
+		if(rules[i].flags&CENTER_Y) y += (max_h-h)/2;
+		if(rules[i].flags&CENTER_X) x += (max_w-w)/2;
+		rules[i].window = newwin(h, w, y, x);
 #endif
 	}
 //	draw_box(0, 0, max_h, max_w);

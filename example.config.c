@@ -8,9 +8,9 @@
 #define REFRESH_MICROSECONDS 200000
 
 static struct rule rules[] = {
-//	function           y   x    h    w  time (s) NULL  flags
-	timedate,         -5,  0,   1,  23,       1, NULL, CENTER_Y|CENTER_X, "%Y-%m-%d %a %H:%M:%S",
-	external_command,  0,  0,   8,  42,       5, NULL, CENTER_Y|CENTER_X, "cal -m -n 2 --color=never",
+//	function             y     x      h      w   time (s) NULL  flags
+	timedate,          0.2,    0,     1,    23,        1, NULL, CENTER_X|RELATIVE_Y_POS, "%Y-%m-%d %a %H:%M:%S",
+	external_command,    0,    0,     8,    42,   2*3600, NULL, CENTER, "cal -m -n 2 --color=never",
 };
 
 #include "show.h"
