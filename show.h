@@ -48,14 +48,18 @@ static void process_rules(){
 		plane_options.cols = w;
 		rules[i].plane = ncplane_create(notcurses_stdplane(nc), &plane_options);	//create plane
 		ncplane_move_rel(rules[i].plane, move_y, move_x);
-		ncplane_set_bg_alpha(rules[i].plane, NCALPHA_TRANSPARENT);
+		nccell base_cell = NCCELL_TRIVIAL_INITIALIZER;
+		nccell_set_bg_alpha(&base_cell, NCALPHA_TRANSPARENT);
+		ncplane_set_base_cell(rules[i].plane, &base_cell);
+
+		if(rules[i].flags&DRAW_BOX) draw_box(rules[i].plane);
 #else
 		if(rules[i].flags&CENTER_Y) y += (max_h-h)/2;
 		if(rules[i].flags&CENTER_X) x += (max_w-w)/2;
 		rules[i].window = newwin(h, w, y, x);
+		if(rules[i].flags&DRAW_BOX) draw_box(rules[i].window);
 #endif
 	}
-//	draw_box(0, 0, max_h, max_w);
 }
 
 static void* update_function(){
@@ -113,6 +117,7 @@ static void end_display(){
 	}
 #ifdef USE_NOTCURSES
 	notcurses_drop_planes(nc);
+	ncplane_erase(notcurses_stdplane(nc));
 #else
 	refresh();
 	clear();

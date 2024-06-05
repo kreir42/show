@@ -10,6 +10,12 @@
 #ifdef USE_NOTCURSES
 #include <notcurses/notcurses.h>
 extern struct notcurses* nc;
+#define BOX_HLINE "─"
+#define BOX_VLINE "│"
+#define BOX_URCORNER "┐"
+#define BOX_ULCORNER "┌"
+#define BOX_LRCORNER "┘"
+#define BOX_LLCORNER "└"
 #else
 #include <ncurses.h>
 #include <signal.h>
@@ -34,27 +40,55 @@ struct rule{
 		#define RELATIVE_X_POS	 8
 		#define RELATIVE_Y_SIZE	16
 		#define RELATIVE_X_SIZE	32
+		#define DRAW_BOX	64
 		#define CENTER		CENTER_Y|CENTER_X
 		#define RELATIVE_POS	RELATIVE_Y_POS|RELATIVE_X_POS
 		#define RELATIVE_SIZE	RELATIVE_Y_SIZE|RELATIVE_X_SIZE
 	void* data;
 };
 
-void draw_box(int y, int x, int h, int w){
 #ifdef USE_NOTCURSES
-#else
-//	//corners
-	mvaddch(    y,     x, ACS_ULCORNER);
-	mvaddch(    y, w-1+x, ACS_URCORNER);
-	mvaddch(h-1+y,     x, ACS_LLCORNER);
-	mvaddch(h-1+y, w-1+x, ACS_LRCORNER);
-//	//sides
-	mvhline(    y,   1+x, ACS_HLINE, w-2);
-	mvhline(h-1+y,   1+x, ACS_HLINE, w-2);
-	mvvline(  1+y,     x, ACS_VLINE, h-2);
-	mvvline(  1+y, w-1+x, ACS_VLINE, h-2);
-#endif
+void draw_box(struct ncplane* plane){
+	int h, w;
+	ncplane_dim_yx(plane, &h, &w);
+	h+=2; w+=2;
+	struct ncplane_options plane_options = {
+		.y = -1, .x = -1,
+		.rows = h, .cols = w,
+	};
+	struct ncplane* box_plane = ncplane_create(plane, &plane_options);
+	nccell base_cell = NCCELL_TRIVIAL_INITIALIZER;
+	nccell_set_bg_alpha(&base_cell, NCALPHA_TRANSPARENT);
+	ncplane_set_base_cell(box_plane, &base_cell);
+
+	nccell ul = NCCELL_TRIVIAL_INITIALIZER, ur = NCCELL_TRIVIAL_INITIALIZER;
+	nccell ll = NCCELL_TRIVIAL_INITIALIZER, lr = NCCELL_TRIVIAL_INITIALIZER;
+	nccell hl = NCCELL_TRIVIAL_INITIALIZER, vl = NCCELL_TRIVIAL_INITIALIZER;
+
+	nccell_load(box_plane, &ul, BOX_ULCORNER); nccell_load(box_plane, &ur, BOX_URCORNER);
+	nccell_load(box_plane, &ll, BOX_LLCORNER); nccell_load(box_plane, &lr, BOX_LRCORNER);
+	nccell_load(box_plane, &hl, BOX_HLINE);    nccell_load(box_plane, &vl, BOX_VLINE);
+
+	ncplane_perimeter(box_plane, &ul, &ur, &ll, &lr, &hl, &vl, 0);
+
+	nccell_release(box_plane, &ul); nccell_release(box_plane, &ur);
+	nccell_release(box_plane, &ll); nccell_release(box_plane, &lr);
+	nccell_release(box_plane, &hl); nccell_release(box_plane, &vl);
 }
+#else
+void draw_box(WINDOW* window){
+////	//corners
+//	mvaddch(    y,     x, ACS_ULCORNER);
+//	mvaddch(    y, w-1+x, ACS_URCORNER);
+//	mvaddch(h-1+y,     x, ACS_LLCORNER);
+//	mvaddch(h-1+y, w-1+x, ACS_LRCORNER);
+////	//sides
+//	mvhline(    y,   1+x, ACS_HLINE, w-2);
+//	mvhline(h-1+y,   1+x, ACS_HLINE, w-2);
+//	mvvline(  1+y,     x, ACS_VLINE, h-2);
+//	mvvline(  1+y, w-1+x, ACS_VLINE, h-2);
+}
+#endif
 
 static void get_size(struct rule* rule, int* h, int* w){
 	unsigned int max_h, max_w;
@@ -99,8 +133,7 @@ void* external_command(void* input){
 #endif
 		}
 		pclose(fp);
-#ifdef USE_NOTCURSES
-#else
+#ifndef USE_NOTCURSES
 		wnoutrefresh(rule->window);
 #endif
 		sleep(rule->time);
