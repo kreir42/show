@@ -48,9 +48,11 @@ static void process_rules(){
 		plane_options.cols = w;
 		rules[i].plane = ncplane_create(notcurses_stdplane(nc), &plane_options);	//create plane
 		ncplane_move_rel(rules[i].plane, move_y, move_x);
-		nccell base_cell = NCCELL_TRIVIAL_INITIALIZER;
-		nccell_set_bg_alpha(&base_cell, NCALPHA_TRANSPARENT);
-		ncplane_set_base_cell(rules[i].plane, &base_cell);
+		if(!(rules[i].flags&OPAQUE_BACKGROUND)){
+			nccell base_cell = NCCELL_TRIVIAL_INITIALIZER;
+			nccell_set_bg_alpha(&base_cell, NCALPHA_TRANSPARENT);
+			ncplane_set_base_cell(rules[i].plane, &base_cell);
+		}
 
 		if(rules[i].flags&DRAW_BOX) draw_box(rules[i].plane);
 #else

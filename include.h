@@ -34,13 +34,14 @@ struct rule{
 	WINDOW* window;
 #endif
 	int_least8_t flags;
-		#define CENTER_Y	 1
-		#define CENTER_X	 2
-		#define RELATIVE_Y_POS	 4
-		#define RELATIVE_X_POS	 8
-		#define RELATIVE_Y_SIZE	16
-		#define RELATIVE_X_SIZE	32
-		#define DRAW_BOX	64
+		#define CENTER_Y	 	  1
+		#define CENTER_X	 	  2
+		#define RELATIVE_Y_POS	 	  4
+		#define RELATIVE_X_POS	 	  8
+		#define RELATIVE_Y_SIZE		 16
+		#define RELATIVE_X_SIZE		 32
+		#define DRAW_BOX		 64
+		#define OPAQUE_BACKGROUND	128
 		#define CENTER		CENTER_Y|CENTER_X
 		#define RELATIVE_POS	RELATIVE_Y_POS|RELATIVE_X_POS
 		#define RELATIVE_SIZE	RELATIVE_Y_SIZE|RELATIVE_X_SIZE
@@ -57,8 +58,8 @@ void draw_box(struct ncplane* plane){
 		.rows = h, .cols = w,
 	};
 	struct ncplane* box_plane = ncplane_create(plane, &plane_options);
-	nccell base_cell = NCCELL_TRIVIAL_INITIALIZER;
-	nccell_set_bg_alpha(&base_cell, NCALPHA_TRANSPARENT);
+	nccell base_cell;
+	ncplane_base(plane, &base_cell);
 	ncplane_set_base_cell(box_plane, &base_cell);
 
 	nccell ul = NCCELL_TRIVIAL_INITIALIZER, ur = NCCELL_TRIVIAL_INITIALIZER;
