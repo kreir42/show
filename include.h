@@ -77,16 +77,21 @@ void draw_box(struct ncplane* plane){
 }
 #else
 void draw_box(WINDOW* window){
-////	//corners
-//	mvaddch(    y,     x, ACS_ULCORNER);
-//	mvaddch(    y, w-1+x, ACS_URCORNER);
-//	mvaddch(h-1+y,     x, ACS_LLCORNER);
-//	mvaddch(h-1+y, w-1+x, ACS_LRCORNER);
-////	//sides
-//	mvhline(    y,   1+x, ACS_HLINE, w-2);
-//	mvhline(h-1+y,   1+x, ACS_HLINE, w-2);
-//	mvvline(  1+y,     x, ACS_VLINE, h-2);
-//	mvvline(  1+y, w-1+x, ACS_VLINE, h-2);
+	int y, x, h, w;
+	getbegyx(window, y, x);
+	getmaxyx(window, h, w);
+	y--; x--;
+	h+=2; w+=2;
+	//corners
+	mvaddch(    y,     x, ACS_ULCORNER);
+	mvaddch(    y, w-1+x, ACS_URCORNER);
+	mvaddch(h-1+y,     x, ACS_LLCORNER);
+	mvaddch(h-1+y, w-1+x, ACS_LRCORNER);
+	//sides
+	mvhline(    y,   1+x, ACS_HLINE, w-2);
+	mvhline(h-1+y,   1+x, ACS_HLINE, w-2);
+	mvvline(  1+y,     x, ACS_VLINE, h-2);
+	mvvline(  1+y, w-1+x, ACS_VLINE, h-2);
 }
 #endif
 

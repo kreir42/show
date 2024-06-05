@@ -92,7 +92,7 @@ static void start_display(){
 	struct ncplane* background_plane = ncvisual_blit(nc, background_visual, &ncvisual_options);
 #endif
 #endif
-	process_rules();	//initial setup
+	process_rules();
 	//create a pthread per rule
 	for(unsigned char i=0; i<rules_n; i++){
 		pthread_create(&rule_threads[i], NULL, rules[i].function, &rules[i]);
@@ -198,6 +198,11 @@ int main(int argc, char** argv){
 	pthread_create(&input_thread, NULL, input_function, NULL);
 
 	start_display();
+
+#ifndef USE_NOTCURSES
+	end_display();
+	start_display();
+#endif
 
 	pthread_join(input_thread, NULL);	//wait for input thread to return
 
