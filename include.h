@@ -12,6 +12,7 @@
 extern struct notcurses* nc;
 #else
 #include <ncurses.h>
+#include <signal.h>
 #endif
 
 #include <unistd.h>

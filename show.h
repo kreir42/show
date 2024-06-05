@@ -1,5 +1,8 @@
 static const unsigned char rules_n = sizeof(rules) / sizeof(struct rule);
 
+static pthread_t update_thread;
+static pthread_t* rule_threads;
+
 #ifdef USE_NOTCURSES
 struct notcurses* nc;	//notcurses program
 #endif
@@ -71,6 +74,51 @@ static void* update_function(){
 	return NULL;
 }
 
+static void start_display(){
+#ifdef USE_NOTCURSES
+#ifdef BACKGROUND
+	struct ncvisual* background_visual = ncvisual_from_file(BACKGROUND);
+	struct ncvisual_options ncvisual_options = {
+		.n = notcurses_stdplane(nc),
+		.scaling = NCSCALE_SCALE,
+		.y = NCALIGN_CENTER, .x = NCALIGN_CENTER,
+		.blitter = BACKGROUND_BLIT,
+		.flags = NCVISUAL_OPTION_HORALIGNED|NCVISUAL_OPTION_VERALIGNED | NCVISUAL_OPTION_CHILDPLANE,
+	};
+	struct ncplane* background_plane = ncvisual_blit(nc, background_visual, &ncvisual_options);
+#endif
+#endif
+	process_rules();	//initial setup
+	//create a pthread per rule
+	for(unsigned char i=0; i<rules_n; i++){
+		pthread_create(&rule_threads[i], NULL, rules[i].function, &rules[i]);
+	}
+	//create a pthread to update the screen
+	pthread_create(&update_thread, NULL, update_function, NULL);
+}
+
+static void end_display(){
+	//cancel all threads other than input
+	pthread_cancel(update_thread);
+	for(unsigned char i=0; i<rules_n; i++){
+		pthread_cancel(rule_threads[i]);
+	}
+	//wait for them to cancel
+	pthread_join(update_thread, NULL);
+	for(unsigned char i=0; i<rules_n; i++){
+		pthread_join(rule_threads[i], NULL);
+#ifndef USE_NOTCURSES
+		endwin();
+#endif
+	}
+#ifdef USE_NOTCURSES
+	notcurses_drop_planes(nc);
+#else
+	refresh();
+	clear();
+#endif
+}
+
 static void* input_function(){
 #ifdef USE_NOTCURSES
 	uint32_t c;
@@ -89,11 +137,22 @@ static void* input_function(){
 			case 'q':
 			case 'Q':
 				return NULL;
+#ifdef USE_NOTCURSES
+			case NCKEY_RESIZE:
+			case NCKEY_ENTER:
+#else
 			case 10:
+#endif
 			case ' ':
-				//TBD: update
+				end_display();
+				start_display();
 		}
 	}
+}
+
+void handle_winch(int sig){
+	end_display();
+	start_display();
 }
 
 int main(int argc, char** argv){
@@ -117,48 +176,31 @@ int main(int argc, char** argv){
 		.flags = NCOPTION_SUPPRESS_BANNERS,
 	};
 	nc = notcurses_init(&opts, NULL);	//initialize notcurses
-#ifdef BACKGROUND
-	struct ncvisual* background_visual = ncvisual_from_file(BACKGROUND);
-	struct ncvisual_options ncvisual_options = {
-		.n = notcurses_stdplane(nc),
-		.scaling = NCSCALE_SCALE,
-		.y = NCALIGN_CENTER, .x = NCALIGN_CENTER,
-		.blitter = BACKGROUND_BLIT,
-		.flags = NCVISUAL_OPTION_HORALIGNED|NCVISUAL_OPTION_VERALIGNED | NCVISUAL_OPTION_CHILDPLANE,
-	};
-	struct ncplane* background_plane = ncvisual_blit(nc, background_visual, &ncvisual_options);
-#endif
 #else
 	initscr();
 	noecho();
 	curs_set(0);
+	//handler SIGWINCH signal
+	struct sigaction sa;
+	memset(&sa, 0, sizeof(struct sigaction));
+	sa.sa_handler = handle_winch;
+	sigaction(SIGWINCH, &sa, NULL);
 #endif
 
-	pthread_t input_thread, update_thread;
-	pthread_t rule_threads[rules_n];
+	pthread_t input_thread;
+	rule_threads = malloc(sizeof(pthread_t)*rules_n);
 	//create pthread for input
 	pthread_create(&input_thread, NULL, input_function, NULL);
-	process_rules();	//initial setup
-	//create a pthread per rule
-	for(unsigned char i=0; i<rules_n; i++){
-		pthread_create(&rule_threads[i], NULL, rules[i].function, &rules[i]);
-	}
-	//create a pthread to update the screen
-	pthread_create(&update_thread, NULL, update_function, NULL);
+
+	start_display();
 
 	pthread_join(input_thread, NULL);	//wait for input thread to return
-	//cancel all other threads
-	pthread_cancel(update_thread);
-	for(unsigned char i=0; i<rules_n; i++){
-		pthread_cancel(rule_threads[i]);
-	}
-	//wait for all other threads to cancel
-	pthread_join(update_thread, NULL);
-	for(unsigned char i=0; i<rules_n; i++){
-		pthread_join(rule_threads[i], NULL);
-	}
+
+	end_display();
+
+	free(rule_threads);
+
 #ifdef USE_NOTCURSES
-	notcurses_drop_planes(nc);
 	return notcurses_stop(nc);	//close notcurses, return 0 if success
 #else
 	for(unsigned char i=0; i<rules_n; i++){
