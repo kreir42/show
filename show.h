@@ -5,6 +5,9 @@ static pthread_t* rule_threads;
 
 #ifdef USE_NOTCURSES
 struct notcurses* nc;	//notcurses program
+#ifdef BACKGROUND
+static struct ncvisual* background_visual;
+#endif
 #endif
 
 static void process_rules(){
@@ -83,7 +86,7 @@ static void* update_function(){
 static void start_display(){
 #ifdef USE_NOTCURSES
 #ifdef BACKGROUND
-	struct ncvisual* background_visual = ncvisual_from_file(BACKGROUND);
+	background_visual = ncvisual_from_file(BACKGROUND);
 	struct ncvisual_options ncvisual_options = {
 		.n = notcurses_stdplane(nc),
 		.scaling = NCSCALE_SCALE,
@@ -118,6 +121,9 @@ static void end_display(){
 #endif
 	}
 #ifdef USE_NOTCURSES
+#ifdef BACKGROUND
+	ncvisual_destroy(background_visual);
+#endif
 	notcurses_drop_planes(nc);
 	ncplane_erase(notcurses_stdplane(nc));
 #else
