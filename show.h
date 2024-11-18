@@ -172,10 +172,18 @@ int main(int argc, char** argv){
 	//CLI arguments
 	for(short i=1; i<argc; i++){
 		if(!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")){
-			printf("Help message TBD\n");
+			printf("Flags:\n");
+			printf("     --help or -h\n");
+			printf("       Print this message and exit.\n");
+			printf("     --version or -v\n");
+			printf("       Print the code version and exit.\n");
+			printf("Keys:\n");
+			printf("     'q': quit program\n");
+			printf("     ' ' or ENTER: refresh display\n");
 			return 0;
 		}else if(!strcmp(argv[i], "--version") || !strcmp(argv[i], "-v")){
-			printf("Version "CURRENT_VERSION"\n");
+			printf(CURRENT_VERSION"\n");
+			return 0;
 		}else{
 			printf("Unknown argument %s, use -h or --help for valid arguments\n", argv[i]);
 			return 1;
