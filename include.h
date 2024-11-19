@@ -111,6 +111,18 @@ static void get_size(struct rule* rule, int* h, int* w){
 
 #include "external_command.h"
 
+//print a string
+void* print_string(void* input){
+	struct rule* rule = input;
+
+#ifdef USE_NOTCURSES
+	ncplane_putstr_yx(rule->plane, 0, 0, rule->data);
+#else
+	mvwaddstr(rule->window, 0, 0, rule->data);
+#endif
+	return NULL;
+}
+
 //shows the date and time in a user-configured string
 void* timedate(void* input){
 	struct rule* rule = input;

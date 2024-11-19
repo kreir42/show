@@ -9,6 +9,7 @@
 
 static struct rule rules[] = {
 //	function             y     x      h      w   time (s) NULL  flags                    argument
+	print_string,        0,    0,     1,    34,        0, NULL, CENTER_X,                "EXAMPLE WITH WIDE CHARACTERS: 漢字",
 	timedate,          0.2,    0,     1,    23,        1, NULL, CENTER_X|RELATIVE_Y_POS, "%Y-%m-%d %a %H:%M:%S",
 	external_command,    0,    0,     8,    42,   6*3600, NULL, CENTER|DRAW_BOX,         "cal -m -n 2 --color=never",
 };
