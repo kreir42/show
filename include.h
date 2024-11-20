@@ -34,14 +34,14 @@ struct rule{
 	WINDOW* window;
 #endif
 	int_least8_t flags;
-		#define CENTER_Y	 	  1
-		#define CENTER_X	 	  2
-		#define RELATIVE_Y_POS	 	  4
-		#define RELATIVE_X_POS	 	  8
-		#define RELATIVE_Y_SIZE		 16
-		#define RELATIVE_X_SIZE		 32
-		#define DRAW_BOX		 64
-		#define OPAQUE_BACKGROUND	128
+		#define CENTER_Y	 	(1<<0)
+		#define CENTER_X	 	(1<<1)
+		#define RELATIVE_Y_POS	 	(1<<2)
+		#define RELATIVE_X_POS	 	(1<<3)
+		#define RELATIVE_Y_SIZE		(1<<4)
+		#define RELATIVE_X_SIZE		(1<<5)
+		#define DRAW_BOX		(1<<6)
+		#define OPAQUE_BACKGROUND	(1<<7)
 		#define CENTER		CENTER_Y|CENTER_X
 		#define RELATIVE_POS	RELATIVE_Y_POS|RELATIVE_X_POS
 		#define RELATIVE_SIZE	RELATIVE_Y_SIZE|RELATIVE_X_SIZE
