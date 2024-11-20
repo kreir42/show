@@ -110,6 +110,7 @@ static void get_size(struct rule* rule, int* h, int* w){
 }
 
 #include "external_command.h"
+#include "plot.h"
 
 //print a string
 void* print_string(void* input){

@@ -16,7 +16,7 @@ all: $(TARGETS)
 clean:
 	rm $(TARGETS)
 
-%: %.config.c include.h show.h
+%: %.config.c *.h
 	@if grep -q "^[^/]*#define USE_NOTCURSES" $<; then\
 		echo "Compiling $< with notcurses";\
 		$(CC) $< -o $@ $(LIB) $(CFLAGS) $(NOTCURSES_LIB) $(NOTCURSES_CFLAGS);\

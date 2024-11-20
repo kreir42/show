@@ -116,7 +116,12 @@ static void end_display(){
 	pthread_join(update_thread, NULL);
 	for(unsigned char i=0; i<rules_n; i++){
 		pthread_join(rule_threads[i], NULL);
-#ifndef USE_NOTCURSES
+#ifdef USE_NOTCURSES
+		if(rules[i].function == plot){
+			void* userptr = ncplane_userptr(rules[i].plane);
+			if(userptr) ncdplot_destroy(userptr);
+		}
+#else
 		endwin();
 #endif
 	}
