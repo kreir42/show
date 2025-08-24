@@ -67,7 +67,7 @@ static void process_rules(){
 	}
 }
 
-static void* update_function(){
+static void* update_function(void* arg){
 #ifdef USE_NOTCURSES
 	struct ncplane* stdplane = notcurses_stdplane(nc);
 #endif
@@ -137,7 +137,7 @@ static void end_display(){
 #endif
 }
 
-static void* input_function(){
+static void* input_function(void* arg){
 #ifdef USE_NOTCURSES
 	uint32_t c;
 #else
