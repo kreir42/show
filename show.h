@@ -67,7 +67,7 @@ static void process_rules(){
 	}
 }
 
-static void* update_function(){
+static void* update_function(void* _){
 #ifdef USE_NOTCURSES
 	struct ncplane* stdplane = notcurses_stdplane(nc);
 #endif
@@ -137,12 +137,12 @@ static void end_display(){
 #endif
 }
 
-static void* input_function(){
+static void* input_function(void* _){
 #ifdef USE_NOTCURSES
 	uint32_t c;
 #else
 	int c;
-	//create a separate window so getch doesnt bock the update threads
+	//create a separate window so getch doesnt block the update threads
 	WINDOW* window = newwin(1,1,0,0);
 #endif
 	while(1){
