@@ -109,18 +109,23 @@ static void get_size(struct rule* rule, int* h, int* w){
 	else *w = rule->w;
 }
 
+static inline void draw_string(struct rule* rule, int y, int x, const char* str){
+#ifdef USE_NOTCURSES
+	ncplane_putstr_yx(rule->plane, y, x, str);
+#else
+	mvwaddstr(rule->window, y, x, str);
+#endif
+}
+
 #include "external_command.h"
+#ifdef USE_NOTCURSES
 #include "plot.h"
+#endif
 
 //print a string
 void* print_string(void* input){
 	struct rule* rule = input;
-
-#ifdef USE_NOTCURSES
-	ncplane_putstr_yx(rule->plane, 0, 0, rule->data);
-#else
-	mvwaddstr(rule->window, 0, 0, rule->data);
-#endif
+	draw_string(rule, 0, 0, rule->data);
 	return NULL;
 }
 
@@ -138,10 +143,8 @@ void* timedate(void* input){
 		t = time(NULL);
 		tm = localtime(&t);
 		strftime(str, w, rule->data, tm);
-#ifdef USE_NOTCURSES
-		ncplane_putstr_yx(rule->plane, 0, 0, str);
-#else
-		mvwaddstr(rule->window, 0, 0, str);
+		draw_string(rule, 0, 0, str);
+#ifndef USE_NOTCURSES
 		wnoutrefresh(rule->window);
 #endif
 		sleep(rule->time);

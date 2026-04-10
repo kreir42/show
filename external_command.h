@@ -21,11 +21,7 @@ void* external_command(void* input){
 					continue;
 				}
 			}
-#ifdef USE_NOTCURSES
-			ncplane_putstr_yx(rule->plane, i, 0, str);
-#else
-			mvwaddstr(rule->window, i, 0, str);
-#endif
+			draw_string(rule, i, 0, str);
 		}
 		pclose(fp);
 #ifndef USE_NOTCURSES
