@@ -111,6 +111,12 @@ static void get_size(struct rule* rule, int* h, int* w){
 	else *w = rule->w;
 }
 
+static inline void stage_refresh(struct rule* rule){
+#ifndef USE_NOTCURSES
+	wnoutrefresh(rule->window);
+#endif
+}
+
 static inline void draw_string(struct rule* rule, int y, int x, const char* str){
 #ifdef USE_NOTCURSES
 	ncplane_putstr_yx(rule->window, y, x, str);
@@ -146,9 +152,7 @@ void* timedate(void* input){
 		tm = localtime(&t);
 		strftime(str, w, rule->data, tm);
 		draw_string(rule, 0, 0, str);
-#ifndef USE_NOTCURSES
-		wnoutrefresh(rule->window);
-#endif
+		stage_refresh(rule);
 		sleep(rule->time);
 	}
 	return NULL;

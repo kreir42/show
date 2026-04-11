@@ -24,9 +24,7 @@ void* external_command(void* input){
 			draw_string(rule, i, 0, str);
 		}
 		pclose(fp);
-#ifndef USE_NOTCURSES
-		wnoutrefresh(rule->window);
-#endif
+		stage_refresh(rule);
 		sleep(rule->time);
 	}
 	return NULL;
