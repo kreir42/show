@@ -23,16 +23,18 @@ extern struct notcurses* nc;
 
 #include <unistd.h>
 
+#ifdef USE_NOTCURSES
+typedef struct ncplane* window_handle_t;
+#else
+typedef WINDOW* window_handle_t;
+#endif
+
 struct rule{
 	void* (*function)(void* input);	//function that will run the rule
 	float y, x;	//top-left corner position
 	float h, w;
 	int time;
-#ifdef USE_NOTCURSES
-	struct ncplane* plane;
-#else
-	WINDOW* window;
-#endif
+	window_handle_t window;
 	int_least8_t flags;
 		#define CENTER_Y	 	(1<<0)
 		#define CENTER_X	 	(1<<1)
@@ -111,7 +113,7 @@ static void get_size(struct rule* rule, int* h, int* w){
 
 static inline void draw_string(struct rule* rule, int y, int x, const char* str){
 #ifdef USE_NOTCURSES
-	ncplane_putstr_yx(rule->plane, y, x, str);
+	ncplane_putstr_yx(rule->window, y, x, str);
 #else
 	mvwaddstr(rule->window, y, x, str);
 #endif

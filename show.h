@@ -49,15 +49,15 @@ static void process_rules(){
 		}
 		plane_options.rows = h;
 		plane_options.cols = w;
-		rules[i].plane = ncplane_create(notcurses_stdplane(nc), &plane_options);	//create plane
-		ncplane_move_rel(rules[i].plane, move_y, move_x);
+		rules[i].window = ncplane_create(notcurses_stdplane(nc), &plane_options);	//create plane
+		ncplane_move_rel(rules[i].window, move_y, move_x);
 		if(!(rules[i].flags&OPAQUE_BACKGROUND)){
 			nccell base_cell = NCCELL_TRIVIAL_INITIALIZER;
 			nccell_set_bg_alpha(&base_cell, NCALPHA_TRANSPARENT);
-			ncplane_set_base_cell(rules[i].plane, &base_cell);
+			ncplane_set_base_cell(rules[i].window, &base_cell);
 		}
 
-		if(rules[i].flags&DRAW_BOX) draw_box(rules[i].plane);
+		if(rules[i].flags&DRAW_BOX) draw_box(rules[i].window);
 #else
 		if(rules[i].flags&CENTER_Y) y += (max_h-h)/2;
 		if(rules[i].flags&CENTER_X) x += (max_w-w)/2;
@@ -118,7 +118,7 @@ static void end_display(){
 		pthread_join(rule_threads[i], NULL);
 #ifdef USE_NOTCURSES
 		if(rules[i].function == plot){
-			void* userptr = ncplane_userptr(rules[i].plane);
+			void* userptr = ncplane_userptr(rules[i].window);
 			if(userptr) ncdplot_destroy(userptr);
 		}
 #else

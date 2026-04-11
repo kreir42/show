@@ -4,8 +4,8 @@ void* plot(void* input){
 	get_size(rule, &h, &w);
 
 	ncplot_options plot_opts={};
-	struct ncdplot* plot = ncdplot_create(rule->plane, &plot_opts, 0, 0);
-	ncplane_set_userptr(rule->plane, plot);
+	struct ncdplot* plot = ncdplot_create(rule->window, &plot_opts, 0, 0);
+	ncplane_set_userptr(rule->window, plot);
 	unsigned long plot_x=0;
 	double plot_y;
 	char str[128];
