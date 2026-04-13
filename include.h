@@ -129,6 +129,7 @@ static inline void draw_string(struct rule* rule, int y, int x, const char* str)
 #include "external_command.h"
 #ifdef USE_NOTCURSES
 #include "plot.h"
+#include "image.h"
 #endif
 
 //print a string
