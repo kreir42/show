@@ -35,7 +35,7 @@ struct rule{
 	float h, w;
 	int time;
 	window_handle_t window;
-	int_least8_t flags;
+	int_least16_t flags;
 		#define CENTER_Y	 	(1<<0)
 		#define CENTER_X	 	(1<<1)
 		#define RELATIVE_Y_POS	 	(1<<2)
@@ -43,7 +43,8 @@ struct rule{
 		#define RELATIVE_Y_SIZE		(1<<4)
 		#define RELATIVE_X_SIZE		(1<<5)
 		#define DRAW_BOX		(1<<6)
-		#define OPAQUE_BACKGROUND	(1<<7)
+		#define OPAQUE			(1<<7)
+		#define BLEND_BACKGROUND	(1<<8)
 		#define CENTER		CENTER_Y|CENTER_X
 		#define RELATIVE_POS	RELATIVE_Y_POS|RELATIVE_X_POS
 		#define RELATIVE_SIZE	RELATIVE_Y_SIZE|RELATIVE_X_SIZE
