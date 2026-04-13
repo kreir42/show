@@ -1,5 +1,5 @@
 CC := gcc
-LIB := -lpthread
+LIB := -lpthread -lvterm
 CFLAGS := 
 #Put all names of .config files into TARGETS variable after removing the .config
 TARGETS := $(patsubst %.config.c,%,$(wildcard *.config.c))

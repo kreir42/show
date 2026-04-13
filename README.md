@@ -13,3 +13,4 @@ You can choose to use ncurses instead of notcurses by removing the `#define USE_
 
 + ncurses or [notcurses](https://github.com/dankamongmen/notcurses)
 + pthreads
++ libvterm

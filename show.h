@@ -205,6 +205,8 @@ int main(int argc, char** argv){
 #else
 	initscr();
 	noecho();
+	start_color();
+	use_default_colors();
 	curs_set(0);
 	//handler SIGWINCH signal
 	struct sigaction sa;
