@@ -60,9 +60,11 @@ void draw_box(struct ncplane* plane){
 		.rows = h, .cols = w,
 	};
 	struct ncplane* box_plane = ncplane_create(plane, &plane_options);
+	ncplane_move_below(box_plane, plane);
 	nccell base_cell;
 	ncplane_base(plane, &base_cell);
-	nccell_set_fg_alpha(&base_cell, NCALPHA_TRANSPARENT);
+	nccell_set_fg_alpha(&base_cell, NCALPHA_OPAQUE);
+	nccell_set_bg_alpha(&base_cell, NCALPHA_TRANSPARENT); //TODO inherit
 	ncplane_set_base_cell(box_plane, &base_cell);
 
 	nccell ul = NCCELL_TRIVIAL_INITIALIZER, ur = NCCELL_TRIVIAL_INITIALIZER;
