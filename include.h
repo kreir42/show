@@ -45,6 +45,8 @@ struct rule{
 		#define DRAW_BOX		(1<<6)
 		#define OPAQUE			(1<<7)
 		#define BLEND_BACKGROUND	(1<<8)
+		#define BOLD			(1<<9)
+		#define ITALIC			(1<<10)
 		#define CENTER		CENTER_Y|CENTER_X
 		#define RELATIVE_POS	RELATIVE_Y_POS|RELATIVE_X_POS
 		#define RELATIVE_SIZE	RELATIVE_Y_SIZE|RELATIVE_X_SIZE

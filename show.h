@@ -57,6 +57,14 @@ static void process_rules(){
 			nccell_set_bg_alpha(&base_cell, NCALPHA_TRANSPARENT);
 		}
 		nccell_set_fg_alpha(&base_cell, NCALPHA_OPAQUE);
+		if(rules[i].flags&BOLD) {
+			nccell_on_styles(&base_cell, NCSTYLE_BOLD);
+			ncplane_on_styles(rules[i].window, NCSTYLE_BOLD);
+		}
+		if(rules[i].flags&ITALIC) {
+			nccell_on_styles(&base_cell, NCSTYLE_ITALIC);
+			ncplane_on_styles(rules[i].window, NCSTYLE_ITALIC);
+		}
 		ncplane_set_base_cell(rules[i].window, &base_cell);
 
 		if(rules[i].flags&DRAW_BOX) draw_box(rules[i].window);
@@ -64,6 +72,10 @@ static void process_rules(){
 		if(rules[i].flags&CENTER_Y) y += (max_h-h)/2;
 		if(rules[i].flags&CENTER_X) x += (max_w-w)/2;
 		rules[i].window = newwin(h, w, y, x);
+		if(rules[i].flags&BOLD) wattron(rules[i].window, A_BOLD);
+#ifdef A_ITALIC
+		if(rules[i].flags&ITALIC) wattron(rules[i].window, A_ITALIC);
+#endif
 		if(rules[i].flags&DRAW_BOX) draw_box(rules[i].window);
 #endif
 	}
