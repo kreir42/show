@@ -143,6 +143,7 @@ static inline void draw_string(struct rule* rule, int y, int x, const char* str)
 void* print_string(void* input){
 	struct rule* rule = input;
 	draw_string(rule, 0, 0, rule->data);
+	stage_refresh(rule);
 	return NULL;
 }
 
