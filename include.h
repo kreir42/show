@@ -62,9 +62,13 @@ void draw_box(struct ncplane* plane){
 	};
 	struct ncplane* box_plane = ncplane_create(plane, &plane_options);
 	ncplane_move_below(box_plane, plane);
-	nccell base_cell;
+	nccell base_cell = NCCELL_TRIVIAL_INITIALIZER;
 	ncplane_base(plane, &base_cell);
 	ncplane_set_base_cell(box_plane, &base_cell);
+	if(nccell_bg_alpha(&base_cell) == NCALPHA_BLEND){
+		nccell_set_bg_alpha(&base_cell, NCALPHA_TRANSPARENT);
+		ncplane_set_base_cell(plane, &base_cell);
+	}
 
 	nccell ul = NCCELL_TRIVIAL_INITIALIZER, ur = NCCELL_TRIVIAL_INITIALIZER;
 	nccell ll = NCCELL_TRIVIAL_INITIALIZER, lr = NCCELL_TRIVIAL_INITIALIZER;
