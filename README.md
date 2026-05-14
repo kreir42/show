@@ -26,7 +26,7 @@ Rules are declared as a flat array in your config file, with fields:
 | `y`, `x`   | float   | Top-left corner position (row, col). Fractional if `RELATIVE_*_POS` is set |
 | `h`, `w`   | float   | Height and width in rows/cols. Fractional if `RELATIVE_*SIZE` is set |
 | `time`     | int     | Refresh interval in seconds. `0` = run once |
-| `NULL`     | —       | Reserved (leave as `NULL`) |
+| `NULL`     |         | Reserved (leave as `NULL`) |
 | `flags`    | bitmask | Display options (see below). |
 | `argument` | string  | Widget-specific argument |
 
@@ -36,7 +36,7 @@ Rules are declared as a flat array in your config file, with fields:
 |--------------------|-------------|
 | `CENTER_Y`         | Center widget vertically |
 | `CENTER_X`         | Center widget horizontally |
-| `CENTER`           | Center both axes (`CENTER_Y\|CENTER_X`) |
+| `CENTER`           | Center both axes ( shorthand for `CENTER_Y\|CENTER_X`) |
 | `RELATIVE_Y_POS`   | Interpret `y` as a fraction of screen height |
 | `RELATIVE_X_POS`   | Interpret `x` as a fraction of screen width |
 | `RELATIVE_POS`     | Both relative positions |
@@ -59,13 +59,13 @@ Rules are declared as a flat array in your config file, with fields:
 ## Widgets
 
 ### `external_command`
-Runs a shell command in a pseudo-terminal and renders its output including full ANSI color and text attributes (bold, italic, underline, reverse, blink, etc).
+Runs a shell command in a pseudo-terminal and renders its output, including full ANSI color and text attributes (bold, italic, underline, reverse, blink, etc).
 
 ### `text_external_command`
-Runs a shell command and captures plain text output line by line. Lighter than `external_command` — no PTY or color support.
+Runs a shell command and captures plain text output line by line. Lighter than `external_command`, no PTY or color support.
 
 ### `print_string`
-Renders a static string. Runs once.
+Renders a static string.
 
 ### `timedate`
 Displays the current date and time using a `strftime` format string. Updates every `time` seconds.
