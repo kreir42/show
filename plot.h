@@ -8,7 +8,9 @@ void* plot(void* input){
 	ncplane_set_userptr(rule->window, plot);
 	unsigned long plot_x=0;
 	double plot_y;
-	char str[128];
+	char* str = malloc(w*sizeof(char));
+	if(!str) return NULL; //check for failed malloc
+	pthread_cleanup_push(free, str); //free str on thread cancel
 	FILE* fp;
 	while(1){
 		fp = popen(rule->data, "r");
@@ -21,5 +23,6 @@ void* plot(void* input){
 		plot_x++;
 		sleep(rule->time);
 	}
+	pthread_cleanup_pop(1); //frees str on break or cancel
 	return NULL;
 }
