@@ -1,6 +1,7 @@
 //shows the result of a shell command
 static inline void draw_text_external_command(struct rule* rule, int h, int w, char* str) {
 	FILE* fp = popen(rule->data, "r");
+	if(fp == NULL) return; //popen failed
 	unsigned short last;
 	for(unsigned short i=0; i<h; i++){
 		if(fgets(str, w, fp)==NULL) break;	//exit early if command output ends

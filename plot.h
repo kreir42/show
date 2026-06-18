@@ -12,6 +12,7 @@ void* plot(void* input){
 	FILE* fp;
 	while(1){
 		fp = popen(rule->data, "r");
+		if(fp == NULL) break; //popen failed
 		if(fgets(str, w, fp)==NULL) break;	//exit early if command output ends
 		plot_y = strtod(str, NULL);
 		ncdplot_add_sample(plot, plot_x, plot_y);
