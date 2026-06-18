@@ -25,16 +25,19 @@ void* text_external_command(void* input){
 	get_size(rule, &h, &w);
 	w++;	//+1 for the NULL terminator
 	char* str = malloc(w*sizeof(char));
+	if(!str) return NULL; //check for failed malloc
 	int t = rule->time;
 	if (t <= 0) {
 		draw_text_external_command(rule, h, w, str);
+		free(str);
 	} else {
+		pthread_cleanup_push(free, str); //free str on thread cancel
 		while(1){
 			draw_text_external_command(rule, h, w, str);
 			sleep(t);
 		}
+		pthread_cleanup_pop(1);	//unreachable, balances pthread_cleanup_push macro
 	}
-	free(str);
 	return NULL;
 }
 
