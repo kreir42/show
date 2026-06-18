@@ -155,6 +155,9 @@ void* timedate(void* input){
 	w++;	//+1 for the NULL terminator
 
 	char* str = malloc(w*sizeof(char));
+	if(!str) return NULL; //check for failed malloc
+	pthread_cleanup_push(free, str); //free str on thread cancel
+
 	time_t t;
 	struct tm* tm;
 	while(1){
@@ -165,5 +168,6 @@ void* timedate(void* input){
 		stage_refresh(rule);
 		sleep(rule->time);
 	}
+	pthread_cleanup_pop(1);	//unreachable, balances pthread_cleanup_push macro
 	return NULL;
 }
