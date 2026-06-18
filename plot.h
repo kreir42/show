@@ -13,11 +13,12 @@ void* plot(void* input){
 	while(1){
 		fp = popen(rule->data, "r");
 		if(fp == NULL) break; //popen failed
-		if(fgets(str, w, fp)==NULL) break;	//exit early if command output ends
+		char* line = fgets(str, w, fp);
+		pclose(fp);
+		if(line == NULL) break;	//exit early if command output ends
 		plot_y = strtod(str, NULL);
 		ncdplot_add_sample(plot, plot_x, plot_y);
 		plot_x++;
-		pclose(fp);
 		sleep(rule->time);
 	}
 	return NULL;
