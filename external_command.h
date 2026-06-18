@@ -50,6 +50,21 @@ void* text_external_command(void* input){
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
+#include <signal.h>
+
+struct external_command_resources{
+	int master;
+	pid_t pid;
+	VTerm* vt;
+};
+//handler to clear resources on cancel
+static void ec_cleanup(void* arg) {
+	struct external_command_resources* r = arg;
+	kill(r->pid, SIGKILL);
+	waitpid(r->pid, NULL, 0);
+	close(r->master);
+	if(r->vt) vterm_free(r->vt);
+}
 
 static inline void draw_external_command(struct rule* rule, int h, int w) {
 	int master;
@@ -74,6 +89,8 @@ static inline void draw_external_command(struct rule* rule, int h, int w) {
 	vterm_state_set_bold_highbright(state, 0); //disable bold attribute modifying color
 	VTermScreen *vts = vterm_obtain_screen(vt);
 	vterm_screen_reset(vts, 1);
+	struct external_command_resources res = { master, pid, vt };
+	pthread_cleanup_push(ec_cleanup, &res); //register ec_cleanup so resources are released on normal exit (pop) or if the thread is cancelled
 	//move output child -> buffer -> virtual terminal
 	char buf[1024];
 	int n;
@@ -85,9 +102,6 @@ static inline void draw_external_command(struct rule* rule, int h, int w) {
 		if (n <= 0) break;
 		vterm_input_write(vt, buf, n);
 	}
-	int status;
-	waitpid(pid, &status, 0);
-	close(master);
 
 #ifndef USE_NOTCURSES
 	//if ncurses, setup cache for color pairs
@@ -253,7 +267,7 @@ static inline void draw_external_command(struct rule* rule, int h, int w) {
 #endif
 	wattroff(rule->window, clear_attrs);
 #endif
-	vterm_free(vt);
+	pthread_cleanup_pop(1);	//runs ec_cleanup: kills/reaps the child, closes master, frees vt
 	stage_refresh(rule);
 }
 
