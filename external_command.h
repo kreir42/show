@@ -2,14 +2,13 @@
 static inline void draw_text_external_command(struct rule* rule, int h, int w, char* str) {
 	FILE* fp = popen(rule->data, "r");
 	if(fp == NULL) return; //popen failed
-	unsigned short last;
 	for(unsigned short i=0; i<h; i++){
 		if(fgets(str, w, fp)==NULL) break;	//exit early if command output ends
 		//if last char is a newline, remove
-		last = strlen(str)-1;
-		if(str[last]=='\n'){
-			str[last] = '\0';
-			if(last==0){	//first and only char was a newline
+		size_t len = strlen(str);
+		if(len>0 && str[len-1]=='\n'){
+			str[len-1] = '\0';
+			if(len==1){	//first and only char was a newline
 				i--;
 				continue;
 			}
