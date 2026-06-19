@@ -46,6 +46,7 @@ void* text_external_command(void* input){
 #include <unistd.h>
 #include <sys/wait.h>
 #include <poll.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
@@ -96,9 +97,15 @@ static inline void draw_external_command(struct rule* rule, int h, int w) {
 	struct pollfd pfd;
 	pfd.fd = master;
 	pfd.events = POLLIN;
-	while (poll(&pfd, 1, -1) > 0) {
+	while (1) {
+		int poll_return = poll(&pfd, 1, -1);
+		if (poll_return < 0) {
+			if (errno == EINTR) continue; //interrupted by signal, retry
+			break;
+		}
 		n = read(master, buf, sizeof(buf));
-		if (n <= 0) break;
+		if (n < 0 && errno == EINTR) continue; //interrupted by signal, retry
+		if (n <= 0) break; //EOF or child closed the PTY
 		vterm_input_write(vt, buf, n);
 	}
 
