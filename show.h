@@ -124,13 +124,13 @@ static void end_display(){
 		}
 #else
 		delwin(rules[i].window);
-		endwin();
 #endif
 	}
 #ifdef USE_NOTCURSES
 	notcurses_drop_planes(nc);
 	ncplane_erase(notcurses_stdplane(nc));
 #else
+	endwin();
 	refresh();
 	clear();
 #endif
@@ -230,18 +230,12 @@ int main(int argc, char** argv){
 #endif
 
 	pthread_join(input_thread, NULL);	//wait for input thread to return
-
 	end_display();
-
 	free(rule_threads);
 
 #ifdef USE_NOTCURSES
 	return notcurses_stop(nc);	//close notcurses, return 0 if success
 #else
-	for(unsigned char i=0; i<rules_n; i++){
-		endwin();
-	}
-	endwin();
 	endwin();
 	return 0;
 #endif
