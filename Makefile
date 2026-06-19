@@ -11,10 +11,12 @@ NCURSES_LIB := $(shell pkg-config --libs ncursesw)
 NCURSES_CFLAGS := $(shell pkg-config --cflags ncursesw)
 
 
+.PHONY: all clean
+
 all: $(TARGETS)
 
 clean:
-	rm $(TARGETS)
+	rm -f $(TARGETS)
 
 %: %.config.c *.h
 	@if grep -q "^[^/]*#define USE_NOTCURSES" $<; then\
