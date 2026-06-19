@@ -90,7 +90,9 @@ static void* update_function(void* _){
 		ncpile_render(stdplane);
 		ncpile_rasterize(stdplane);
 #else
+		draw_lock();
 		doupdate();
+		draw_unlock();
 #endif
 		usleep(REFRESH_MICROSECONDS);	//TBD:change to nanosleep?
 	}
@@ -123,7 +125,9 @@ static void end_display(){
 			if(userptr) ncdplot_destroy(userptr);
 		}
 #else
+		draw_lock(); //serialize against rule threads still being cancelled that may still be drawing
 		delwin(rules[i].window);
+		draw_unlock();
 #endif
 	}
 #ifdef USE_NOTCURSES

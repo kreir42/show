@@ -119,9 +119,27 @@ static void get_size(struct rule* rule, int* h, int* w){
 	else *w = rule->w;
 }
 
+#ifndef USE_NOTCURSES
+//ncurses is not thread-safe, so all ncurses access must be serialized through this mutex
+//cancellation is disabled while it's held so a thread can't be cancelled mid-draw while holding the lock, which would leave it locked and cause a deadlock
+//widgets that draw through draw_string/stage_refresh get this for free, widgets that call ncurses directly must wrap their drawing in draw_lock/draw_unlock
+static pthread_mutex_t curses_mutex = PTHREAD_MUTEX_INITIALIZER;
+static __thread int curses_cancelstate; //per-thread state
+static inline void draw_lock(void){
+	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &curses_cancelstate);
+	pthread_mutex_lock(&curses_mutex);
+}
+static inline void draw_unlock(void){
+	pthread_mutex_unlock(&curses_mutex);
+	pthread_setcancelstate(curses_cancelstate, NULL);
+}
+#endif
+
 static inline void stage_refresh(struct rule* rule){
 #ifndef USE_NOTCURSES
+	draw_lock();
 	wnoutrefresh(rule->window);
+	draw_unlock();
 #endif
 }
 
@@ -129,7 +147,9 @@ static inline void draw_string(struct rule* rule, int y, int x, const char* str)
 #ifdef USE_NOTCURSES
 	ncplane_putstr_yx(rule->window, y, x, str);
 #else
+	draw_lock();
 	mvwaddstr(rule->window, y, x, str);
+	draw_unlock();
 #endif
 }
 

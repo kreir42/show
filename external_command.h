@@ -113,6 +113,7 @@ static inline void draw_external_command(struct rule* rule, int h, int w) {
 	//if ncurses, setup cache for color pairs
 	short next_pair = 1;
 	short pair_map[256][256] = {0}; //cache for up to 256x256 combinations
+	draw_lock(); //serialize the direct ncurses drawing below to avoid concurrency issues
 #endif
 
 	VTermPos pos;
@@ -272,6 +273,7 @@ static inline void draw_external_command(struct rule* rule, int h, int w) {
 	clear_attrs |= A_ITALIC;
 #endif
 	wattroff(rule->window, clear_attrs);
+	draw_unlock(); //lift the draw lock
 #endif
 	pthread_cleanup_pop(1);	//runs ec_cleanup: kills/reaps the child, closes master, frees vt
 	stage_refresh(rule);
