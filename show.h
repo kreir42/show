@@ -123,6 +123,7 @@ static void end_display(){
 			if(userptr) ncdplot_destroy(userptr);
 		}
 #else
+		delwin(rules[i].window);
 		endwin();
 #endif
 	}
@@ -152,6 +153,9 @@ static void* input_function(void* _){
 		switch(c){
 			case 'q':
 			case 'Q':
+#ifndef USE_NOTCURSES
+				delwin(window);
+#endif
 				return NULL;
 #ifdef USE_NOTCURSES
 			case NCKEY_RESIZE:
