@@ -1,4 +1,4 @@
-static const unsigned char rules_n = sizeof(rules) / sizeof(struct rule);
+static const unsigned short rules_n = sizeof(rules) / sizeof(struct rule);
 
 static pthread_t update_thread;
 static pthread_t* rule_threads;
@@ -16,7 +16,7 @@ static void process_rules(){
 #else
 	getmaxyx(stdscr, max_h, max_w);
 #endif
-	for(unsigned char i=0; i<rules_n; i++){
+	for(unsigned short i=0; i<rules_n; i++){
 		if(rules[i].flags&RELATIVE_Y_POS) y = rules[i].y*max_h;
 		else y = rules[i].y;
 		if(rules[i].flags&RELATIVE_X_POS) x = rules[i].x*max_w;
@@ -100,7 +100,7 @@ static void* update_function(void* _){
 static void start_display(){
 	process_rules();
 	//create a pthread per rule
-	for(unsigned char i=0; i<rules_n; i++){
+	for(unsigned short i=0; i<rules_n; i++){
 		pthread_create(&rule_threads[i], NULL, rules[i].function, &rules[i]);
 	}
 	//create a pthread to update the screen
@@ -110,12 +110,12 @@ static void start_display(){
 static void end_display(){
 	//cancel all threads other than input
 	pthread_cancel(update_thread);
-	for(unsigned char i=0; i<rules_n; i++){
+	for(unsigned short i=0; i<rules_n; i++){
 		pthread_cancel(rule_threads[i]);
 	}
 	//wait for them to cancel
 	pthread_join(update_thread, NULL);
-	for(unsigned char i=0; i<rules_n; i++){
+	for(unsigned short i=0; i<rules_n; i++){
 		pthread_join(rule_threads[i], NULL);
 #ifdef USE_NOTCURSES
 		if(rules[i].function == plot){
