@@ -55,7 +55,7 @@ struct rule{
 
 #ifdef USE_NOTCURSES
 void draw_box(struct ncplane* plane){
-	int h, w;
+	unsigned int h, w;
 	ncplane_dim_yx(plane, &h, &w);
 	h+=2; w+=2;
 	struct ncplane_options plane_options = {
