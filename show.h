@@ -204,6 +204,10 @@ int main(int argc, char** argv){
 		.flags = NCOPTION_SUPPRESS_BANNERS,
 	};
 	nc = notcurses_init(&opts, NULL);	//initialize notcurses
+	if(nc == NULL){
+		fprintf(stderr, "Failed to initialize notcurses\n");
+		return 1;
+	}
 #else
 	initscr();
 	noecho();
@@ -219,6 +223,15 @@ int main(int argc, char** argv){
 
 	pthread_t input_thread;
 	rule_threads = malloc(sizeof(pthread_t)*rules_n);
+	if(rule_threads == NULL){
+		fprintf(stderr, "Failed to allocate rule threads\n");
+#ifdef USE_NOTCURSES
+		notcurses_stop(nc);
+#else
+		endwin();
+#endif
+		return 1;
+	}
 	//create pthread for input
 	pthread_create(&input_thread, NULL, input_function, NULL);
 
