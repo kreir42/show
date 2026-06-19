@@ -136,6 +136,24 @@ static void end_display(){
 #endif
 }
 
+#ifndef USE_NOTCURSES
+static pthread_mutex_t rebuild_mutex = PTHREAD_MUTEX_INITIALIZER;
+static void unlock_rebuild_mutex(void* m){ pthread_mutex_unlock(m); }	//void* signature for pthread_cleanup_push
+#endif
+
+//tear clean and rebuild the display. serialized so the input and resize threads can't overlap
+static void rebuild_display(){
+#ifndef USE_NOTCURSES
+	pthread_mutex_lock(&rebuild_mutex);
+	pthread_cleanup_push(unlock_rebuild_mutex, &rebuild_mutex); //release the lock even if cancelled mid-rebuild
+#endif
+	end_display();
+	start_display();
+#ifndef USE_NOTCURSES
+	pthread_cleanup_pop(1);
+#endif
+}
+
 static void* input_function(void* _){
 #ifdef USE_NOTCURSES
 	uint32_t c;
@@ -164,16 +182,24 @@ static void* input_function(void* _){
 			case 10:
 #endif
 			case ' ':
-				end_display();
-				start_display();
+				rebuild_display();
 		}
 	}
 }
 
-void handle_winch(int sig){
-	end_display();
-	start_display();
+#ifndef USE_NOTCURSES
+//dedicated rebuild thread for SIGWINCH via sigwait
+static void* resize_function(void* _){
+	sigset_t set;
+	sigemptyset(&set);
+	sigaddset(&set, SIGWINCH);
+	int sig;
+	while(1){
+		if(sigwait(&set, &sig) == 0) rebuild_display();
+	}
+	return NULL;
 }
+#endif
 
 int main(int argc, char** argv){
 	//CLI arguments
@@ -214,11 +240,11 @@ int main(int argc, char** argv){
 	start_color();
 	use_default_colors();
 	curs_set(0);
-	//handler SIGWINCH signal
-	struct sigaction sa;
-	memset(&sa, 0, sizeof(struct sigaction));
-	sa.sa_handler = handle_winch;
-	sigaction(SIGWINCH, &sa, NULL);
+	//block SIGWINCH in every thread (they inherit this mask) so it gets handled in resize_thread instead
+	sigset_t winch_set;
+	sigemptyset(&winch_set);
+	sigaddset(&winch_set, SIGWINCH);
+	pthread_sigmask(SIG_BLOCK, &winch_set, NULL);
 #endif
 
 	pthread_t input_thread;
@@ -234,15 +260,23 @@ int main(int argc, char** argv){
 	}
 	//create pthread for input
 	pthread_create(&input_thread, NULL, input_function, NULL);
+#ifndef USE_NOTCURSES
+	//create pthread to handle terminal resizes (SIGWINCH signal)
+	pthread_t resize_thread;
+	pthread_create(&resize_thread, NULL, resize_function, NULL);
+#endif
 
 	start_display();
 
 #ifndef USE_NOTCURSES
-	end_display();
-	start_display();
+	rebuild_display();
 #endif
 
 	pthread_join(input_thread, NULL);	//wait for input thread to return
+#ifndef USE_NOTCURSES
+	pthread_cancel(resize_thread);
+	pthread_join(resize_thread, NULL);
+#endif
 	end_display();
 	free(rule_threads);
 
