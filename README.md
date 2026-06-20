@@ -73,6 +73,9 @@ Renders a static string.
 ### `timedate`
 Displays the current date and time using a `strftime` format string. Updates every `time` seconds.
 
+### `large_clock`
+Displays the time in large block digits scaled to fill the widget area. Takes a `strftime` format string in the argument that should resolve to only digits and `:` (e.g. `%H:%M` or `%H:%M:%S`). Updates every `time` seconds.
+
 ### `image` *(notcurses only)*
 Displays an image file, scaled to the widget area. Checks every `time` seconds and re-renders if the file's modification time increases.
 
