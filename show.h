@@ -25,6 +25,9 @@ static void process_rules(){
 		else h = rules[i].h;
 		if(rules[i].flags&RELATIVE_X_SIZE) w = rules[i].w*max_w;
 		else w = rules[i].w;
+		//clamp to 1 to avoid crashes
+		if(h<1) h = 1;
+		if(w<1) w = 1;
 #ifdef USE_NOTCURSES
 		struct ncplane_options plane_options = {};
 		//set notcurses plane options

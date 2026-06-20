@@ -117,6 +117,9 @@ static void get_size(struct rule* rule, int* h, int* w){
 	else *h = rule->h;
 	if(rule->flags&RELATIVE_X_SIZE) *w = rule->w*max_w;
 	else *w = rule->w;
+	//clamp to match process_rules in show.h
+	if(*h<1) *h = 1;
+	if(*w<1) *w = 1;
 }
 
 #ifndef USE_NOTCURSES
