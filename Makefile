@@ -10,15 +10,23 @@ NOTCURSES_CFLAGS := $(shell pkg-config --cflags notcurses)
 NCURSES_LIB := $(shell pkg-config --libs ncursesw)
 NCURSES_CFLAGS := $(shell pkg-config --cflags ncursesw)
 
+#Every header in widgets/ is auto-included into include.h via the generated widgets.h
+WIDGET_HEADERS := $(wildcard widgets/*.h)
+
 
 .PHONY: all clean
 
 all: $(TARGETS)
 
 clean:
-	rm -f $(TARGETS)
+	rm -f $(TARGETS) widgets.h
 
-%: %.config.c *.h
+#Generate the auto-include list: one #include line per widgets/*.h header
+widgets.h: $(WIDGET_HEADERS)
+	@echo "Generating $@"
+	@printf '#include "%s"\n' $(WIDGET_HEADERS) > $@
+
+%: %.config.c widgets.h *.h
 	@if grep -q "^[^/]*#define USE_NOTCURSES" $<; then\
 		echo "Compiling $< with notcurses";\
 		$(CC) $< -o $@ $(LIB) $(CFLAGS) $(NOTCURSES_LIB) $(NOTCURSES_CFLAGS);\

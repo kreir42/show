@@ -1,3 +1,4 @@
+#ifdef USE_NOTCURSES
 #include <sys/stat.h>
 #include <time.h>
 
@@ -38,3 +39,4 @@ void* image(void* input){
 	}
 	return NULL;
 }
+#endif

@@ -1,3 +1,4 @@
+#ifdef USE_NOTCURSES
 void* plot(void* input){
 	struct rule* rule = input;
 	int h, w;
@@ -26,3 +27,4 @@ void* plot(void* input){
 	pthread_cleanup_pop(1); //frees str on break or cancel
 	return NULL;
 }
+#endif
