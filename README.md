@@ -76,9 +76,6 @@ Displays the current date and time using a `strftime` format string. Updates eve
 ### `image` *(notcurses only)*
 Displays an image file, scaled to the widget area. Checks every `time` seconds and re-renders if the file's modification time increases.
 
-### `plot` *(notcurses only)*
-Plots a scrolling time-series graph. Each refresh runs the command and reads a single numeric value from stdout, appending it to the chart. Requires `time > 0`.
-
 ## Keys
 
 | Key          | Action |

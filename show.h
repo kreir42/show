@@ -122,12 +122,7 @@ static void end_display(){
 	pthread_join(update_thread, NULL);
 	for(unsigned short i=0; i<rules_n; i++){
 		pthread_join(rule_threads[i], NULL);
-#ifdef USE_NOTCURSES
-		if(rules[i].function == plot){
-			void* userptr = ncplane_userptr(rules[i].window);
-			if(userptr) ncdplot_destroy(userptr);
-		}
-#else
+#ifndef USE_NOTCURSES
 		draw_lock(); //serialize against rule threads still being cancelled that may still be drawing
 		delwin(rules[i].window);
 		draw_unlock();
