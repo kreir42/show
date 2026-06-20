@@ -70,6 +70,9 @@ Runs a shell command and captures plain text output line by line. Lighter than `
 ### `print_string`
 Renders a static string.
 
+### `print_large_string`
+Renders a static string in large block letters scaled to fill the widget area. Supports uppercase letters, digits, and assorted symbols (lowercase is folded to uppercase; unsupported characters render as blank space). The glyphs live in `big_font.h`.
+
 ### `timedate`
 Displays the current date and time using a `strftime` format string. Updates every `time` seconds.
 

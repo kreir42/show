@@ -156,34 +156,17 @@ static inline void draw_string(struct rule* rule, int y, int x, const char* str)
 #endif
 }
 
-//3x5 bitmap font for big text: digits 0-9 and : character. each glyph is 5 rows, the low 3 bits of each byte are one pixel row, MSB = leftmost pixel
-#define BIG_FONT_H 5
-#define BIG_FONT_W 3
-static const unsigned char big_font_digits[10][BIG_FONT_H] = {
-	{0b111,0b101,0b101,0b101,0b111}, //0
-	{0b010,0b010,0b010,0b010,0b010}, //1
-	{0b111,0b001,0b111,0b100,0b111}, //2
-	{0b111,0b001,0b111,0b001,0b111}, //3
-	{0b101,0b101,0b111,0b001,0b001}, //4
-	{0b111,0b100,0b111,0b001,0b111}, //5
-	{0b111,0b100,0b111,0b101,0b111}, //6
-	{0b111,0b001,0b010,0b010,0b010}, //7
-	{0b111,0b101,0b111,0b101,0b111}, //8
-	{0b111,0b101,0b111,0b001,0b111}, //9
-};
-static const unsigned char big_font_colon[BIG_FONT_H] = {0b000,0b010,0b000,0b010,0b000};
+#include "big_font.h" //BIG_FONT_H, BIG_FONT_W and the glyph table
 
 //return wether the pixel at native coordinate (ny,nx) of the rendered string is set. glyphs are BIG_FONT_W wide with a 1-pixel gap between them. unknown characters render blank
 static int big_font_pixel(const char* str, int ny, int nx){
 	int glyph = nx/(BIG_FONT_W+1); //which character
 	int col = nx%(BIG_FONT_W+1); //which column within that character's columns
 	if(col>=BIG_FONT_W) return 0; //inter-glyph gap column
-	char c = str[glyph];
-	const unsigned char* rows;
-	if(c>='0'&&c<='9') rows = big_font_digits[c-'0'];
-	else if(c==':') rows = big_font_colon;
-	else return 0; //unsupported character
-	return (rows[ny]>>(BIG_FONT_W-1-col))&1;
+	unsigned char c = str[glyph];
+	if(c>='a'&&c<='z') c -= 32; //fold lowercase to uppercase
+	if(c>=128) return 0; //non-ASCII render blank
+	return (big_font[c][ny]>>(BIG_FONT_W-1-col))&1;
 }
 
 //render a string (only digits and ':') in block letters scaled to fill the rule's h x w using half-block glyphs
