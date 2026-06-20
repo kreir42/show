@@ -46,6 +46,7 @@ void* text_external_command(void* input){
 #include <unistd.h>
 #include <sys/wait.h>
 #include <poll.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -66,53 +67,12 @@ static void ec_cleanup(void* arg) {
 	if(r->vt) vterm_free(r->vt);
 }
 
-static inline void draw_external_command(struct rule* rule, int h, int w) {
-	int master;
-	//setup the pseudo-terminal
-	struct winsize ws;
-	ws.ws_row = h;
-	ws.ws_col = w;
-	ws.ws_xpixel = 0;
-	ws.ws_ypixel = 0;
-	pid_t pid = forkpty(&master, NULL, NULL, &ws);
-	if (pid == -1) {
-		return;
-	}
-	if (pid == 0) {
-		execl("/bin/sh", "sh", "-c", rule->data, NULL);
-		exit(1);
-	}
-	//setup virtual terminal
-	VTerm *vt = vterm_new(h + 1, w); //extra line for trailing newlines
-	vterm_set_utf8(vt, 1);
-	VTermState *state = vterm_obtain_state(vt);
-	vterm_state_set_bold_highbright(state, 0); //disable bold attribute modifying color
-	VTermScreen *vts = vterm_obtain_screen(vt);
-	vterm_screen_reset(vts, 1);
-	struct external_command_resources res = { master, pid, vt };
-	pthread_cleanup_push(ec_cleanup, &res); //register ec_cleanup so resources are released on normal exit (pop) or if the thread is cancelled
-	//move output child -> buffer -> virtual terminal
-	char buf[1024];
-	int n;
-	struct pollfd pfd;
-	pfd.fd = master;
-	pfd.events = POLLIN;
-	while (1) {
-		int poll_return = poll(&pfd, 1, -1);
-		if (poll_return < 0) {
-			if (errno == EINTR) continue; //interrupted by signal, retry
-			break;
-		}
-		n = read(master, buf, sizeof(buf));
-		if (n < 0 && errno == EINTR) continue; //interrupted by signal, retry
-		if (n <= 0) break; //EOF or child closed the PTY
-		vterm_input_write(vt, buf, n);
-	}
-
+//render the current vterm screen contents to the rule's window
+static inline void render_vterm_screen(struct rule* rule, VTermScreen* vts, int h, int w) {
 #ifndef USE_NOTCURSES
-	//if ncurses, setup cache for color pairs
-	short next_pair = 1;
-	short pair_map[256][256] = {0}; //cache for up to 256x256 combinations
+	//if ncurses, setup cache for color pairs. per-thread and persists across calls so repeated renders reuse pairs instead of exhausting COLOR_PAIRS
+	static __thread short next_pair = 1;
+	static __thread short pair_map[256][256]; //cache for up to 256x256 combinations
 	draw_lock(); //serialize the direct ncurses drawing below to avoid concurrency issues
 #endif
 
@@ -275,10 +235,56 @@ static inline void draw_external_command(struct rule* rule, int h, int w) {
 	wattroff(rule->window, clear_attrs);
 	draw_unlock(); //lift the draw lock
 #endif
+}
+
+static inline void draw_external_command(struct rule* rule, int h, int w) {
+	int master;
+	//setup the pseudo-terminal
+	struct winsize ws;
+	ws.ws_row = h;
+	ws.ws_col = w;
+	ws.ws_xpixel = 0;
+	ws.ws_ypixel = 0;
+	pid_t pid = forkpty(&master, NULL, NULL, &ws);
+	if (pid == -1) {
+		return;
+	}
+	if (pid == 0) {
+		execl("/bin/sh", "sh", "-c", rule->data, NULL);
+		exit(1);
+	}
+	//setup virtual terminal
+	VTerm *vt = vterm_new(h + 1, w); //extra line for trailing newlines
+	vterm_set_utf8(vt, 1);
+	VTermState *state = vterm_obtain_state(vt);
+	vterm_state_set_bold_highbright(state, 0); //disable bold attribute modifying color
+	VTermScreen *vts = vterm_obtain_screen(vt);
+	vterm_screen_reset(vts, 1);
+	struct external_command_resources res = { master, pid, vt };
+	pthread_cleanup_push(ec_cleanup, &res); //register ec_cleanup so resources are released on normal exit (pop) or if the thread is cancelled
+	//move output child -> buffer -> virtual terminal
+	char buf[1024];
+	int n;
+	struct pollfd pfd;
+	pfd.fd = master;
+	pfd.events = POLLIN;
+	while (1) {
+		int poll_return = poll(&pfd, 1, -1);
+		if (poll_return < 0) {
+			if (errno == EINTR) continue; //interrupted by signal, retry
+			break;
+		}
+		n = read(master, buf, sizeof(buf));
+		if (n < 0 && errno == EINTR) continue; //interrupted by signal, retry
+		if (n <= 0) break; //EOF or child closed the PTY
+		vterm_input_write(vt, buf, n);
+	}
+	render_vterm_screen(rule, vts, h, w);
 	pthread_cleanup_pop(1);	//runs ec_cleanup: kills/reaps the child, closes master, frees vt
 	stage_refresh(rule);
 }
 
+//regular version, for short-lived commands
 void* external_command(void* input){
 	struct rule* rule = input;
 	int h, w;
@@ -292,5 +298,76 @@ void* external_command(void* input){
 			sleep(t);
 		}
 	}
+	return NULL;
+}
+
+//like external_command, but the command is launched once and its live output is streamed into the display as it arrives. rule->time is ignored
+void* live_external_command(void* input){
+	struct rule* rule = input;
+	int h, w;
+	get_size(rule, &h, &w);
+	const int drain_cap = 64*1024; //max bytes drained per frame so a flooding command can't starve rendering
+	int master;
+	//setup the pseudo-terminal
+	struct winsize ws;
+	ws.ws_row = h;
+	ws.ws_col = w;
+	ws.ws_xpixel = 0;
+	ws.ws_ypixel = 0;
+	pid_t pid = forkpty(&master, NULL, NULL, &ws);
+	if (pid == -1) {
+		return NULL;
+	}
+	if (pid == 0) {
+		execl("/bin/sh", "sh", "-c", rule->data, NULL);
+		exit(1);
+	}
+	//drain the master non-blocking, so a single burst can be read fully before rendering
+	int fl = fcntl(master, F_GETFL, 0);
+	if (fl != -1) fcntl(master, F_SETFL, fl | O_NONBLOCK);
+	//setup virtual terminal
+	VTerm *vt = vterm_new(h + 1, w); //extra line for trailing newlines
+	vterm_set_utf8(vt, 1);
+	VTermState *state = vterm_obtain_state(vt);
+	vterm_state_set_bold_highbright(state, 0); //disable bold attribute modifying color
+	VTermScreen *vts = vterm_obtain_screen(vt);
+	vterm_screen_reset(vts, 1);
+	struct external_command_resources res = { master, pid, vt };
+	pthread_cleanup_push(ec_cleanup, &res); //release resources on cancel (resize/quit) or normal exit (pop)
+
+	char buf[1024];
+	struct pollfd pfd;
+	pfd.fd = master;
+	pfd.events = POLLIN;
+	int child_alive = 1;
+	while (child_alive) {
+		int poll_return = poll(&pfd, 1, -1); //block until the child produces output
+		if (poll_return < 0) {
+			if (errno == EINTR) continue; //interrupted by signal, retry
+			break;
+		}
+		//drain everything currently buffered, then render a single frame
+		int dirty = 0;
+		int drained = 0;
+		while (drained < drain_cap) {
+			int n = read(master, buf, sizeof(buf));
+			if (n > 0) {
+				vterm_input_write(vt, buf, n);
+				dirty = 1;
+				drained += n;
+				continue;
+			}
+			if (n < 0 && errno == EINTR) continue; //interrupted by signal, retry
+			if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) break; //nothing more for now
+			child_alive = 0; //EOF or read error: child exited / closed the PTY
+			break;
+		}
+		if (dirty) {
+			render_vterm_screen(rule, vts, h, w);
+			stage_refresh(rule);
+		}
+	}
+	while (1) pause(); //child has exited: keep the final frame on screen and the thread idle until cancelled
+	pthread_cleanup_pop(1);	//unreachable, balances pthread_cleanup_push macro
 	return NULL;
 }

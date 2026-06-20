@@ -59,7 +59,10 @@ Rules are declared as a flat array in your config file, with fields:
 ## Widgets
 
 ### `external_command`
-Runs a shell command in a pseudo-terminal and renders its output, including full ANSI color and text attributes (bold, italic, underline, reverse, blink, etc).
+Runs a shell command in a pseudo-terminal and renders its output, including full ANSI color and text attributes (bold, italic, underline, reverse, blink, etc). The command runs to completion and is rerun every `time` seconds.
+
+### `live_external_command`
+Like `external_command`, but launches the command **once** and streams its live output as it arrives, for long-running or interactive commands (`top`, `tail -f`, a TUI). `time` is ignored. The command is restarted when the display is rebuilt (resize/refresh). If it exits on its own, the last frame stays on screen.
 
 ### `text_external_command`
 Runs a shell command and captures plain text output line by line. Lighter than `external_command`, no PTY or color support.
