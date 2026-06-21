@@ -18,31 +18,75 @@ Display the output of multiple commands and widgets simultaneously in a multi-th
 Copy and modify `example.config.c` under a new name, then run `make`.
 To use ncurses instead of notcurses, remove the `#define USE_NOTCURSES` line from your config.
 
-Rules are declared as a flat array in your config file, with fields:
+Rules are declared as an array in your config file using designated initializers.
 
-| Field      | Type    | Description |
-|------------|---------|-------------|
-| `function` | symbol  | Widget function to run |
-| `y`, `x`   | float   | Top-left corner position (row, col). Fractional if `RELATIVE_*_POS` is set |
-| `h`, `w`   | float   | Height and width in rows/cols. Fractional if `RELATIVE_*SIZE` is set |
-| `time`     | int     | Refresh interval in seconds. `0` = run once |
-| `NULL`     |         | Reserved (leave as `NULL`) |
-| `flags`    | bitmask | Display options (see below). |
-| `argument` | string  | Widget-specific argument |
+```c
+static struct rule rules[] = {
+    {
+        .function = large_clock, .data = "%H:%M:%S", .time = 1,
+        .h = {SZ_ABS, 5}, .w = {SZ_ABS, 40},
+        .y = {.ref_point = START, .offset = 1},            //1 row from the top
+        .x = {.self_point = CENTER, .ref_point = CENTER},  //centered horizontally
+    },
+    {
+        .function = timedate, .data = "%A %d %B", .time = 60,
+        .h = {SZ_ABS, 1}, .w = {SZ_MATCH, 0, RULE(0)},  //as wide as the clock (index 0)
+        .x = {.ref = RULE(0), .ref_point = START, .self_point = START},
+        .y = {.ref = RULE(0), .ref_point = END, .offset = 1}, //1 row below the clock
+    },
+};
+```
+
+A rule may reference only rules that appear **earlier** in the array: `i` must be less than the referencing rule's own index. References are resolved top to bottom in a single pass, so a forward or self reference reads geometry that hasn't been computed yet.
+
+Fields of `struct rule`:
+
+| Field      | Type           | Description |
+|------------|----------------|-------------|
+| `function` | symbol         | Widget function to run |
+| `y`, `x`   | `struct anchor`| Placement of the top edge (`y`) and left edge (`x`) — see below |
+| `h`, `w`   | `struct extent`| Height and width — see below |
+| `time`     | int            | Refresh interval in seconds. `0` = run once |
+| `window`   |                | Backend handle, filled at layout (leave unset) |
+| `flags`    | bitmask        | Rendering options (see below) |
+| `data`     | string         | Widget-specific argument |
+
+### Placement (`y` / `x` anchors)
+
+Each axis positions the widget by aligning one **point of the widget** to one **point of a reference**, plus an offset:
+
+```
+this.<self_point>  =  reference.<ref_point>  +  offset
+```
+
+`struct anchor` fields (optional, an omitted anchor puts that edge at the screen origin):
+
+| Field        | Values                  | Meaning |
+|--------------|-------------------------|---------|
+| `ref`        | `SCREEN` *(default)* / `RULE(i)` | Reference: the screen, or the rule at index `i` |
+| `ref_point`  | `START` / `CENTER` / `END` | Which point of the reference (top/mid/bottom on `y`, left/mid/right on `x`) |
+| `self_point` | `START` / `CENTER` / `END` | Which point of this widget aligns to it |
+| `offset`     | number                  | Gap added after alignment, in cells |
+| `rel`        | `0` / `1`               | If set, `offset` is a fraction of the screen's size along this axis |
+
+Common patterns: center on screen → `self_point = CENTER, ref_point = CENTER`; hug the right edge → `self_point = END, ref_point = END`; directly below 4th widget with a 1-row gap → `{.ref = RULE(3), .ref_point = END, .offset = 1}`; 20% down from the top → `{.offset = 0.2, .rel = 1}`.
+
+### Size (`h` / `w` extents)
+
+`struct extent` fields:
+
+| Field   | Values                         | Meaning |
+|---------|--------------------------------|---------|
+| `mode`  | `SZ_ABS` *(default)* / `SZ_REL` / `SZ_MATCH` | Absolute cells / fraction of screen / equal to a reference's size |
+| `value` | number                         | Cell count (`SZ_ABS`) or fraction 0–1 (`SZ_REL`); ignored for `SZ_MATCH` |
+| `ref`   | `RULE(i)`                      | Rule whose size to match, for `SZ_MATCH` |
 
 ### Flags
 
+Rendering options only:
+
 | Flag               | Description |
 |--------------------|-------------|
-| `CENTER_Y`         | Center widget vertically |
-| `CENTER_X`         | Center widget horizontally |
-| `CENTER`           | Center both axes ( shorthand for `CENTER_Y\|CENTER_X`) |
-| `RELATIVE_Y_POS`   | Interpret `y` as a fraction of screen height |
-| `RELATIVE_X_POS`   | Interpret `x` as a fraction of screen width |
-| `RELATIVE_POS`     | Both relative positions |
-| `RELATIVE_Y_SIZE`  | Interpret `h` as a fraction of screen height |
-| `RELATIVE_X_SIZE`  | Interpret `w` as a fraction of screen width |
-| `RELATIVE_SIZE`    | Both relative sizes |
 | `DRAW_BOX`         | Draw a border around the widget |
 | `BOLD`             | Bold text |
 | `ITALIC`           | Italic text |

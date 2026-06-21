@@ -6,14 +6,51 @@
 #define REFRESH_MICROSECONDS 200000
 
 static struct rule rules[] = {
-//	function                 y     x      h      w   time (s) NULL  flags                                              argument
-	image,                   0,    0,     1,     1,     1000, NULL, CENTER|RELATIVE_SIZE|OPAQUE,                       "example_background.png",
-	print_string,            0,    0,     1,    34,        0, NULL, CENTER_X,                                          "EXAMPLE WITH WIDE CHARACTERS: 漢字",
-	timedate,              0.2,    0,     1,    23,        1, NULL, CENTER_X|RELATIVE_Y_POS|BOLD,                      "%Y-%m-%d %a %H:%M:%S",
-	large_clock,           0.2,    0,   0.3,   0.8,        1, NULL, CENTER_X|RELATIVE_POS|RELATIVE_SIZE,               "%H:%M:%S",
-	print_large_string,      0,0.925,  0.15, 0.075,        0, NULL, RELATIVE_POS|RELATIVE_SIZE,                        ":/",
-	external_command,        0,    0,     8,    42,   6*3600, NULL, CENTER|DRAW_BOX|BLEND_BACKGROUND,                  "cal -m -n 2 --color=always",
-	live_external_command, 0.6,    0,    14,    80,        0, NULL, CENTER_X|RELATIVE_Y_POS|DRAW_BOX|BLEND_BACKGROUND, "top",
+	{
+		.function = image, .data = "example_background.png", .time = 1000,
+		.h = {SZ_REL, 1}, .w = {SZ_REL, 1}, //fills the screen
+		.y = {.self_point = CENTER, .ref_point = CENTER},
+		.x = {.self_point = CENTER, .ref_point = CENTER},
+		.flags = OPAQUE,
+	},
+	{
+		.function = print_string, .data = "漢字でもできる!",
+		.h = {SZ_ABS, 1}, .w = {SZ_ABS, 15},
+		.x = {.self_point = END, .ref_point = END},
+	},
+	{
+		.function = large_clock, .data = "%H:%M:%S", .time = 1,
+		.h = {SZ_REL, 0.3}, .w = {SZ_REL, 0.8},
+		.y = {.offset = 0.2, .rel = 1},
+		.x = {.self_point = CENTER, .ref_point = CENTER},
+	},
+	{
+		.function = timedate, .data = "%Y-%m-%d %a %H:%M:%S", .time = 1,
+		.h = {SZ_ABS, 1}, .w = {SZ_ABS, 23},
+		.y = {.ref = RULE(2), .ref_point = END, .offset = 1}, //1 row below the clock
+		.x = {.self_point = CENTER, .ref_point = CENTER},
+		.flags = BOLD,
+	},
+	{
+		.function = print_large_string, .data = "show",
+		.h = {SZ_REL, 0.1}, .w = {SZ_ABS, 50},
+		.y = {.self_point=END, .ref_point = END},
+		.x = {.self_point=END, .ref_point = END, .offset = -1},
+	},
+	{
+		.function = external_command, .data = "cal -m -n 2 --color=always", .time = 6*3600,
+		.h = {SZ_ABS, 8}, .w = {SZ_ABS, 42},
+		.y = {.self_point = END, .ref_point = END, .offset = -1},
+		.x = {.self_point = START, .ref_point = START, .offset = 1},
+		.flags = DRAW_BOX | BLEND_BACKGROUND,
+	},
+	{
+		.function = live_external_command, .data = "top",
+		.h = {SZ_ABS, 14}, .w = {SZ_ABS, 80},
+		.y = {.offset = 0.6, .rel = 1},
+		.x = {.self_point = CENTER, .ref_point = CENTER},
+		.flags = DRAW_BOX | BLEND_BACKGROUND,
+	},
 };
 
 #include "show.h"

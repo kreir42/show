@@ -29,27 +29,42 @@ typedef struct ncplane* window_handle_t;
 typedef WINDOW* window_handle_t;
 #endif
 
+//placement system: each axis is positioned by anchoring one point of this widget to one point of a reference (the screen or another widget) plus an offset
+enum{ START=0, CENTER, END }; //a point along an axis: top/left, middle, or bottom/right edge
+
+//reference target for an anchor or a matched size
+#define SCREEN	0 //default so an omitted anchor means "top-left at the screen's top-left"
+#define RULE(i)	((i)+1) //RULE(i) references the rule at index i in rules[] (use an enum of names for readability — see the configs).
+
+//placement along one axis
+struct anchor{
+	int ref;		//SCREEN or RULE(index)
+	char ref_point;		//START|CENTER|END on the reference
+	char self_point;	//START|CENTER|END on this widget
+	float offset;		//cells, or a fraction of the screen's axis if rel!=0
+	char rel;		//if !=0, offset is a fraction of the screen along this axis
+};
+
+//size along one axis
+enum{ SZ_ABS=0, SZ_REL, SZ_MATCH }; //absolute cells, fraction of screen, or equal to a reference's size
+struct extent{
+	char mode;		//SZ_ABS|SZ_REL|SZ_MATCH
+	float value;		//cells (SZ_ABS) or fraction of screen (SZ_REL). ignored for SZ_MATCH
+	int ref;		//RULE(index) whose size to match, if mode==SZ_MATCH
+};
+
 struct rule{
 	void* (*function)(void* input);	//function that will run the rule
-	float y, x;	//top-left corner position
-	float h, w;
+	struct anchor y, x; //placement of the top and left edge
+	struct extent h, w; //height and width
 	int time;
 	window_handle_t window;
 	int_least16_t flags;
-		#define CENTER_Y	 	(1<<0)
-		#define CENTER_X	 	(1<<1)
-		#define RELATIVE_Y_POS	 	(1<<2)
-		#define RELATIVE_X_POS	 	(1<<3)
-		#define RELATIVE_Y_SIZE		(1<<4)
-		#define RELATIVE_X_SIZE		(1<<5)
-		#define DRAW_BOX		(1<<6)
-		#define OPAQUE			(1<<7)
-		#define BLEND_BACKGROUND	(1<<8)
-		#define BOLD			(1<<9)
-		#define ITALIC			(1<<10)
-		#define CENTER		CENTER_Y|CENTER_X
-		#define RELATIVE_POS	RELATIVE_Y_POS|RELATIVE_X_POS
-		#define RELATIVE_SIZE	RELATIVE_Y_SIZE|RELATIVE_X_SIZE
+		#define DRAW_BOX		(1<<0)
+		#define OPAQUE			(1<<1)
+		#define BLEND_BACKGROUND	(1<<2)
+		#define BOLD			(1<<3)
+		#define ITALIC			(1<<4)
 	void* data;
 };
 

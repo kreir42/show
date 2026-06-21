@@ -15,56 +15,63 @@ static pthread_t* rule_threads;
 struct notcurses* nc;	//notcurses program
 #endif
 
+//coordinate of a point on a reference spanning [ref_start, ref_start+ref_size)
+static int point_coord(int ref_start, int ref_size, char point){
+	if(point==CENTER) return ref_start + ref_size/2;
+	if(point==END) return ref_start + ref_size;
+	return ref_start; //START
+}
+//how far this widget's chosen point sits from its own top-left
+static int self_shift(int size, char point){
+	if(point==CENTER) return size/2;
+	if(point==END) return size;
+	return 0; //START
+}
+
+//resolve one axis of rule i. ref_start/ref_size read the reference's resolved geometry for this axis. out_start/out_size receive the result
+static void resolve_axis(const struct anchor* a, const struct extent* e, int max, const int* ref_starts, const int* ref_sizes, int* out_start, int* out_size){
+	int size;
+	switch(e->mode){
+		case SZ_REL:   size = e->value*max; break;
+		case SZ_MATCH: size = ref_sizes[e->ref-1]; break;
+		default:       size = e->value; break;
+	}
+	if(size<1) size = 1; //clamp to avoid zero-size windows/planes
+	int rs, rz; //reference start, size along this axis
+	if(a->ref==SCREEN){ rs = 0; rz = max; }
+	else{ rs = ref_starts[a->ref-1]; rz = ref_sizes[a->ref-1]; }
+	int off = a->rel ? (int)(a->offset*max) : (int)a->offset;
+	int pos = point_coord(rs, rz, a->ref_point) + off;
+	*out_start = pos - self_shift(size, a->self_point);
+	*out_size = size;
+}
+
 static void process_rules(){
 	unsigned int max_h, max_w;
-	int y, x, h, w;
 #ifdef USE_NOTCURSES
-	int move_y, move_x;
 	notcurses_stddim_yx(nc, &max_h, &max_w);
 #else
 	getmaxyx(stdscr, max_h, max_w);
 #endif
+	//resolve geometry in array order. a rule may reference only rules earlier in rules[]
+	int ystart[rules_n], yh[rules_n], xstart[rules_n], xw[rules_n];
 	for(unsigned short i=0; i<rules_n; i++){
-		if(rules[i].flags&RELATIVE_Y_POS) y = rules[i].y*max_h;
-		else y = rules[i].y;
-		if(rules[i].flags&RELATIVE_X_POS) x = rules[i].x*max_w;
-		else x = rules[i].x;
-		if(rules[i].flags&RELATIVE_Y_SIZE) h = rules[i].h*max_h;
-		else h = rules[i].h;
-		if(rules[i].flags&RELATIVE_X_SIZE) w = rules[i].w*max_w;
-		else w = rules[i].w;
-		//clamp to 1 to avoid crashes
-		if(h<1) h = 1;
-		if(w<1) w = 1;
-		//store resolved size
-		geom[i].h = h;
-		geom[i].w = w;
+		resolve_axis(&rules[i].y, &rules[i].h, max_h, ystart, yh, &ystart[i], &yh[i]);
+		resolve_axis(&rules[i].x, &rules[i].w, max_w, xstart, xw, &xstart[i], &xw[i]);
+		geom[i].y = ystart[i]; geom[i].h = yh[i];
+		geom[i].x = xstart[i]; geom[i].w = xw[i];
+	}
+	for(unsigned short i=0; i<rules_n; i++){
+		int y = geom[i].y, x = geom[i].x, h = geom[i].h, w = geom[i].w;
+		if(h<1){ h = 1; geom[i].h = 1; }
+		if(w<1){ w = 1; geom[i].w = 1; }
 #ifdef USE_NOTCURSES
 		struct ncplane_options plane_options = {};
-		//set notcurses plane options
-		if(rules[i].flags&CENTER_Y){
-			move_y = y;
-			plane_options.y = NCALIGN_CENTER;
-			plane_options.flags |= NCPLANE_OPTION_VERALIGNED;
-		}else{
-			move_y = 0;
-			plane_options.y = y;
-		}
-		if(rules[i].flags&CENTER_X){
-			move_x = x;
-			plane_options.x = NCALIGN_CENTER;
-			plane_options.flags |= NCPLANE_OPTION_HORALIGNED;
-		}else{
-			move_x = 0;
-			plane_options.x = x;
-		}
+		plane_options.y = y;
+		plane_options.x = x;
 		plane_options.rows = h;
 		plane_options.cols = w;
-		//store resolved top-left position
-		geom[i].y = (rules[i].flags&CENTER_Y) ? (int)(max_h-h)/2 + y : y;
-		geom[i].x = (rules[i].flags&CENTER_X) ? (int)(max_w-w)/2 + x : x;
 		rules[i].window = ncplane_create(notcurses_stdplane(nc), &plane_options);	//create plane
-		ncplane_move_rel(rules[i].window, move_y, move_x);
 		nccell base_cell = NCCELL_TRIVIAL_INITIALIZER;
 		if(rules[i].flags&OPAQUE){
 			nccell_set_bg_alpha(&base_cell, NCALPHA_OPAQUE);
@@ -86,11 +93,6 @@ static void process_rules(){
 
 		if(rules[i].flags&DRAW_BOX) draw_box(rules[i].window);
 #else
-		if(rules[i].flags&CENTER_Y) y += (max_h-h)/2;
-		if(rules[i].flags&CENTER_X) x += (max_w-w)/2;
-		//store resolved top-left position
-		geom[i].y = y;
-		geom[i].x = x;
 		rules[i].window = newwin(h, w, y, x);
 		if(rules[i].flags&BOLD) wattron(rules[i].window, A_BOLD);
 #ifdef A_ITALIC
