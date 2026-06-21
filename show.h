@@ -1,4 +1,12 @@
 static const unsigned short rules_n = sizeof(rules) / sizeof(struct rule);
+static struct rule_geom geom[sizeof(rules) / sizeof(struct rule)]; //resolved absolute geometry, filled once per layout by process_rules
+
+//report the rule's size as resolved at the last layout
+static void get_size(struct rule* rule, int* h, int* w){
+	int i = rule - rules; //rule's position in the rules[] array
+	*h = geom[i].h;
+	*w = geom[i].w;
+}
 
 static pthread_t update_thread;
 static pthread_t* rule_threads;
@@ -28,6 +36,9 @@ static void process_rules(){
 		//clamp to 1 to avoid crashes
 		if(h<1) h = 1;
 		if(w<1) w = 1;
+		//store resolved size
+		geom[i].h = h;
+		geom[i].w = w;
 #ifdef USE_NOTCURSES
 		struct ncplane_options plane_options = {};
 		//set notcurses plane options
@@ -49,6 +60,9 @@ static void process_rules(){
 		}
 		plane_options.rows = h;
 		plane_options.cols = w;
+		//store resolved top-left position
+		geom[i].y = (rules[i].flags&CENTER_Y) ? (int)(max_h-h)/2 + y : y;
+		geom[i].x = (rules[i].flags&CENTER_X) ? (int)(max_w-w)/2 + x : x;
 		rules[i].window = ncplane_create(notcurses_stdplane(nc), &plane_options);	//create plane
 		ncplane_move_rel(rules[i].window, move_y, move_x);
 		nccell base_cell = NCCELL_TRIVIAL_INITIALIZER;
@@ -74,6 +88,9 @@ static void process_rules(){
 #else
 		if(rules[i].flags&CENTER_Y) y += (max_h-h)/2;
 		if(rules[i].flags&CENTER_X) x += (max_w-w)/2;
+		//store resolved top-left position
+		geom[i].y = y;
+		geom[i].x = x;
 		rules[i].window = newwin(h, w, y, x);
 		if(rules[i].flags&BOLD) wattron(rules[i].window, A_BOLD);
 #ifdef A_ITALIC

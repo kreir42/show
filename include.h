@@ -53,6 +53,8 @@ struct rule{
 	void* data;
 };
 
+struct rule_geom{ int y, x, h, w; }; //resolved absolute geometry, computed once per layout by process_rules
+
 #ifdef USE_NOTCURSES
 void draw_box(struct ncplane* plane){
 	unsigned int h, w;
@@ -106,21 +108,8 @@ void draw_box(WINDOW* window){
 }
 #endif
 
-static void get_size(struct rule* rule, int* h, int* w){
-	unsigned int max_h, max_w;
-#ifdef USE_NOTCURSES
-	notcurses_stddim_yx(nc, &max_h, &max_w);
-#else
-	getmaxyx(stdscr, max_h, max_w);
-#endif
-	if(rule->flags&RELATIVE_Y_SIZE) *h = rule->h*max_h;
-	else *h = rule->h;
-	if(rule->flags&RELATIVE_X_SIZE) *w = rule->w*max_w;
-	else *w = rule->w;
-	//clamp to match process_rules in show.h
-	if(*h<1) *h = 1;
-	if(*w<1) *w = 1;
-}
+//report the rule's size as resolved by process_rules at the last layout. defined in show.h
+static void get_size(struct rule* rule, int* h, int* w);
 
 #ifndef USE_NOTCURSES
 //ncurses is not thread-safe, so all ncurses access must be serialized through this mutex
