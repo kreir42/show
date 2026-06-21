@@ -1,6 +1,6 @@
 //shows the result of a shell command
-static inline void draw_text_external_command(struct rule* rule, int h, int w, char* str) {
-	FILE* fp = popen(rule->data, "r");
+static inline void draw_text_external_command(struct widget* widget, int h, int w, char* str) {
+	FILE* fp = popen(widget->data, "r");
 	if(fp == NULL) return; //popen failed
 	for(unsigned short i=0; i<h; i++){
 		if(fgets(str, w, fp)==NULL) break;	//exit early if command output ends
@@ -13,27 +13,27 @@ static inline void draw_text_external_command(struct rule* rule, int h, int w, c
 				continue;
 			}
 		}
-		draw_string(rule, i, 0, str);
+		draw_string(widget, i, 0, str);
 	}
 	pclose(fp);
-	stage_refresh(rule);
+	stage_refresh(widget);
 }
 
 void* text_external_command(void* input){
-	struct rule* rule = input;
+	struct widget* widget = input;
 	int h, w;
-	get_size(rule, &h, &w);
+	get_size(widget, &h, &w);
 	w++;	//+1 for the NULL terminator
 	char* str = malloc(w*sizeof(char));
 	if(!str) return NULL; //check for failed malloc
-	int t = rule->time;
+	int t = widget->time;
 	if (t <= 0) {
-		draw_text_external_command(rule, h, w, str);
+		draw_text_external_command(widget, h, w, str);
 		free(str);
 	} else {
 		pthread_cleanup_push(free, str); //free str on thread cancel
 		while(1){
-			draw_text_external_command(rule, h, w, str);
+			draw_text_external_command(widget, h, w, str);
 			sleep(t);
 		}
 		pthread_cleanup_pop(1);	//unreachable, balances pthread_cleanup_push macro
@@ -67,8 +67,8 @@ static void ec_cleanup(void* arg) {
 	if(r->vt) vterm_free(r->vt);
 }
 
-//render the current vterm screen contents to the rule's window
-static inline void render_vterm_screen(struct rule* rule, VTermScreen* vts, int h, int w) {
+//render the current vterm screen contents to the widget's window
+static inline void render_vterm_screen(struct widget* widget, VTermScreen* vts, int h, int w) {
 #ifndef USE_NOTCURSES
 	//if ncurses, setup cache for color pairs. per-thread and persists across calls so repeated renders reuse pairs instead of exhausting COLOR_PAIRS
 	static __thread short next_pair = 1;
@@ -108,7 +108,7 @@ static inline void render_vterm_screen(struct rule* rule, VTermScreen* vts, int 
 
 			nccell nc_cell;
 			nccell_init(&nc_cell);
-			if (nccell_load(rule->window, &nc_cell, utf8) < 0) continue; //skip if failed
+			if (nccell_load(widget->window, &nc_cell, utf8) < 0) continue; //skip if failed
 			switch(cell.fg.type){ //foreground color
 				case VTERM_COLOR_RGB:
 					nccell_set_fg_rgb8(&nc_cell, cell.fg.rgb.red, cell.fg.rgb.green, cell.fg.rgb.blue);
@@ -148,8 +148,8 @@ static inline void render_vterm_screen(struct rule* rule, VTermScreen* vts, int 
 			//if (cell.attrs.dwl); if (cell.attrs.dhl); //TODO? double-width/double-height lines
 			//if (cell.attrs.small); //TODO? small font
 			//if (cell.attrs.baseline); //TODO? baseline shift
-			ncplane_putc_yx(rule->window, pos.row, pos.col, &nc_cell);
-			nccell_release(rule->window, &nc_cell);
+			ncplane_putc_yx(widget->window, pos.row, pos.col, &nc_cell);
+			nccell_release(widget->window, &nc_cell);
 #else
 			VTermScreenCell cell;
 			vterm_screen_get_cell(vts, pos, &cell);
@@ -205,8 +205,8 @@ static inline void render_vterm_screen(struct rule* rule, VTermScreen* vts, int 
 			} else {
 				off_attrs |= A_COLOR;
 			}
-			wattron(rule->window, on_attrs);
-			wattroff(rule->window, off_attrs);
+			wattron(widget->window, on_attrs);
+			wattroff(widget->window, off_attrs);
 			char utf8[VTERM_MAX_CHARS_PER_CELL * MB_CUR_MAX + 1];
 			int len = 0;
 			if (cell.chars[0] == 0 || cell.chars[0] == (uint32_t)-1) {
@@ -222,7 +222,7 @@ static inline void render_vterm_screen(struct rule* rule, VTermScreen* vts, int 
 				}
 			}
 			utf8[len] = '\0';
-			if (len > 0) mvwaddstr(rule->window, pos.row, pos.col, utf8);
+			if (len > 0) mvwaddstr(widget->window, pos.row, pos.col, utf8);
 #endif
 		}
 	}
@@ -232,12 +232,12 @@ static inline void render_vterm_screen(struct rule* rule, VTermScreen* vts, int 
 #ifdef A_ITALIC //italic not supported in all versions of ncurses
 	clear_attrs |= A_ITALIC;
 #endif
-	wattroff(rule->window, clear_attrs);
+	wattroff(widget->window, clear_attrs);
 	draw_unlock(); //lift the draw lock
 #endif
 }
 
-static inline void draw_external_command(struct rule* rule, int h, int w) {
+static inline void draw_external_command(struct widget* widget, int h, int w) {
 	int master;
 	//setup the pseudo-terminal
 	struct winsize ws;
@@ -250,7 +250,7 @@ static inline void draw_external_command(struct rule* rule, int h, int w) {
 		return;
 	}
 	if (pid == 0) {
-		execl("/bin/sh", "sh", "-c", rule->data, NULL);
+		execl("/bin/sh", "sh", "-c", widget->data, NULL);
 		exit(1);
 	}
 	//setup virtual terminal
@@ -279,33 +279,33 @@ static inline void draw_external_command(struct rule* rule, int h, int w) {
 		if (n <= 0) break; //EOF or child closed the PTY
 		vterm_input_write(vt, buf, n);
 	}
-	render_vterm_screen(rule, vts, h, w);
+	render_vterm_screen(widget, vts, h, w);
 	pthread_cleanup_pop(1);	//runs ec_cleanup: kills/reaps the child, closes master, frees vt
-	stage_refresh(rule);
+	stage_refresh(widget);
 }
 
 //regular version, for short-lived commands
 void* external_command(void* input){
-	struct rule* rule = input;
+	struct widget* widget = input;
 	int h, w;
-	get_size(rule, &h, &w);
-	int t = rule->time;
+	get_size(widget, &h, &w);
+	int t = widget->time;
 	if (t <= 0) {
-		draw_external_command(rule, h, w);
+		draw_external_command(widget, h, w);
 	} else {
 		while(1) {
-			draw_external_command(rule, h, w);
+			draw_external_command(widget, h, w);
 			sleep(t);
 		}
 	}
 	return NULL;
 }
 
-//like external_command, but the command is launched once and its live output is streamed into the display as it arrives. rule->time is ignored
+//like external_command, but the command is launched once and its live output is streamed into the display as it arrives. widget->time is ignored
 void* live_external_command(void* input){
-	struct rule* rule = input;
+	struct widget* widget = input;
 	int h, w;
-	get_size(rule, &h, &w);
+	get_size(widget, &h, &w);
 	const int drain_cap = 64*1024; //max bytes drained per frame so a flooding command can't starve rendering
 	int master;
 	//setup the pseudo-terminal
@@ -319,7 +319,7 @@ void* live_external_command(void* input){
 		return NULL;
 	}
 	if (pid == 0) {
-		execl("/bin/sh", "sh", "-c", rule->data, NULL);
+		execl("/bin/sh", "sh", "-c", widget->data, NULL);
 		exit(1);
 	}
 	//drain the master non-blocking, so a single burst can be read fully before rendering
@@ -363,8 +363,8 @@ void* live_external_command(void* input){
 			break;
 		}
 		if (dirty) {
-			render_vterm_screen(rule, vts, h, w);
-			stage_refresh(rule);
+			render_vterm_screen(widget, vts, h, w);
+			stage_refresh(widget);
 		}
 	}
 	while (1) pause(); //child has exited: keep the final frame on screen and the thread idle until cancelled

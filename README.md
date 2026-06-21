@@ -18,32 +18,32 @@ Display the output of multiple commands and widgets simultaneously in a multi-th
 Copy and modify `example.config.c` under a new name, then run `make`.
 To use ncurses instead of notcurses, remove the `#define USE_NOTCURSES` line from your config.
 
-Rules are declared as an array in your config file using designated initializers.
+Widgets are declared as an array in your config file using designated initializers.
 
 ```c
-static struct rule rules[] = {
+static struct widget widgets[] = {
     {
-        .function = large_clock, .data = "%H:%M:%S", .time = 1,
+        .widget = large_clock, .data = "%H:%M:%S", .time = 1,
         .h = {SZ_ABS, 5}, .w = {SZ_ABS, 40},
         .y = {.ref_point = START, .offset = 1},            //1 row from the top
         .x = {.self_point = CENTER, .ref_point = CENTER},  //centered horizontally
     },
     {
-        .function = timedate, .data = "%A %d %B", .time = 60,
-        .h = {SZ_ABS, 1}, .w = {SZ_MATCH, 0, RULE(0)},  //as wide as the clock (index 0)
-        .x = {.ref = RULE(0), .ref_point = START, .self_point = START},
-        .y = {.ref = RULE(0), .ref_point = END, .offset = 1}, //1 row below the clock
+        .widget = timedate, .data = "%A %d %B", .time = 60,
+        .h = {SZ_ABS, 1}, .w = {SZ_MATCH, 0, WIDGET(0)},  //as wide as the clock (index 0)
+        .x = {.ref = WIDGET(0), .ref_point = START, .self_point = START},
+        .y = {.ref = WIDGET(0), .ref_point = END, .offset = 1}, //1 row below the clock
     },
 };
 ```
 
-A rule may reference only rules that appear **earlier** in the array: `i` must be less than the referencing rule's own index. References are resolved top to bottom in a single pass, so a forward or self reference reads geometry that hasn't been computed yet.
+A widget may reference only widgets that appear **earlier** in the array: `i` must be less than the referencing widget's own index. References are resolved top to bottom in a single pass, so a forward or self reference reads geometry that hasn't been computed yet.
 
-Fields of `struct rule`:
+Fields of `struct widget`:
 
 | Field      | Type           | Description |
 |------------|----------------|-------------|
-| `function` | symbol         | Widget function to run |
+| `widget`   | symbol         | Widget thread function to run |
 | `y`, `x`   | `struct anchor`| Placement of the top edge (`y`) and left edge (`x`) — see below |
 | `h`, `w`   | `struct extent`| Height and width — see below |
 | `time`     | int            | Refresh interval in seconds. `0` = run once |
@@ -63,13 +63,13 @@ this.<self_point>  =  reference.<ref_point>  +  offset
 
 | Field        | Values                  | Meaning |
 |--------------|-------------------------|---------|
-| `ref`        | `SCREEN` *(default)* / `RULE(i)` | Reference: the screen, or the rule at index `i` |
+| `ref`        | `SCREEN` *(default)* / `WIDGET(i)` | Reference: the screen, or the widget at index `i` |
 | `ref_point`  | `START` / `CENTER` / `END` | Which point of the reference (top/mid/bottom on `y`, left/mid/right on `x`) |
 | `self_point` | `START` / `CENTER` / `END` | Which point of this widget aligns to it |
 | `offset`     | number                  | Gap added after alignment, in cells |
 | `rel`        | `0` / `1`               | If set, `offset` is a fraction of the screen's size along this axis |
 
-Common patterns: center on screen → `self_point = CENTER, ref_point = CENTER`; hug the right edge → `self_point = END, ref_point = END`; directly below 4th widget with a 1-row gap → `{.ref = RULE(3), .ref_point = END, .offset = 1}`; 20% down from the top → `{.offset = 0.2, .rel = 1}`.
+Common patterns: center on screen → `self_point = CENTER, ref_point = CENTER`; hug the right edge → `self_point = END, ref_point = END`; directly below 4th widget with a 1-row gap → `{.ref = WIDGET(3), .ref_point = END, .offset = 1}`; 20% down from the top → `{.offset = 0.2, .rel = 1}`.
 
 ### Size (`h` / `w` extents)
 
@@ -79,7 +79,7 @@ Common patterns: center on screen → `self_point = CENTER, ref_point = CENTER`;
 |---------|--------------------------------|---------|
 | `mode`  | `SZ_ABS` *(default)* / `SZ_REL` / `SZ_MATCH` | Absolute cells / fraction of screen / equal to a reference's size |
 | `value` | number                         | Cell count (`SZ_ABS`) or fraction 0–1 (`SZ_REL`); ignored for `SZ_MATCH` |
-| `ref`   | `RULE(i)`                      | Rule whose size to match, for `SZ_MATCH` |
+| `ref`   | `WIDGET(i)`                      | Widget whose size to match, for `SZ_MATCH` |
 
 ### Flags
 

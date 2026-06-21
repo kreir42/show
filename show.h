@@ -1,15 +1,15 @@
-static const unsigned short rules_n = sizeof(rules) / sizeof(struct rule);
-static struct rule_geom geom[sizeof(rules) / sizeof(struct rule)]; //resolved absolute geometry, filled once per layout by process_rules
+static const unsigned short widgets_n = sizeof(widgets) / sizeof(struct widget);
+static struct widget_geom geom[sizeof(widgets) / sizeof(struct widget)]; //resolved absolute geometry, filled once per layout by process_widgets
 
-//report the rule's size as resolved at the last layout
-static void get_size(struct rule* rule, int* h, int* w){
-	int i = rule - rules; //rule's position in the rules[] array
+//report the widget's size as resolved at the last layout
+static void get_size(struct widget* widget, int* h, int* w){
+	int i = widget - widgets; //widget's position in the widgets[] array
 	*h = geom[i].h;
 	*w = geom[i].w;
 }
 
 static pthread_t update_thread;
-static pthread_t* rule_threads;
+static pthread_t* widget_threads;
 
 #ifdef USE_NOTCURSES
 struct notcurses* nc;	//notcurses program
@@ -28,7 +28,7 @@ static int self_shift(int size, char point){
 	return 0; //START
 }
 
-//resolve one axis of rule i. ref_start/ref_size read the reference's resolved geometry for this axis. out_start/out_size receive the result
+//resolve one axis of widget i. ref_start/ref_size read the reference's resolved geometry for this axis. out_start/out_size receive the result
 static void resolve_axis(const struct anchor* a, const struct extent* e, int max, const int* ref_starts, const int* ref_sizes, int* out_start, int* out_size){
 	int size;
 	switch(e->mode){
@@ -46,22 +46,22 @@ static void resolve_axis(const struct anchor* a, const struct extent* e, int max
 	*out_size = size;
 }
 
-static void process_rules(){
+static void process_widgets(){
 	unsigned int max_h, max_w;
 #ifdef USE_NOTCURSES
 	notcurses_stddim_yx(nc, &max_h, &max_w);
 #else
 	getmaxyx(stdscr, max_h, max_w);
 #endif
-	//resolve geometry in array order. a rule may reference only rules earlier in rules[]
-	int ystart[rules_n], yh[rules_n], xstart[rules_n], xw[rules_n];
-	for(unsigned short i=0; i<rules_n; i++){
-		resolve_axis(&rules[i].y, &rules[i].h, max_h, ystart, yh, &ystart[i], &yh[i]);
-		resolve_axis(&rules[i].x, &rules[i].w, max_w, xstart, xw, &xstart[i], &xw[i]);
+	//resolve geometry in array order. a widget may reference only widgets earlier in widgets[]
+	int ystart[widgets_n], yh[widgets_n], xstart[widgets_n], xw[widgets_n];
+	for(unsigned short i=0; i<widgets_n; i++){
+		resolve_axis(&widgets[i].y, &widgets[i].h, max_h, ystart, yh, &ystart[i], &yh[i]);
+		resolve_axis(&widgets[i].x, &widgets[i].w, max_w, xstart, xw, &xstart[i], &xw[i]);
 		geom[i].y = ystart[i]; geom[i].h = yh[i];
 		geom[i].x = xstart[i]; geom[i].w = xw[i];
 	}
-	for(unsigned short i=0; i<rules_n; i++){
+	for(unsigned short i=0; i<widgets_n; i++){
 		int y = geom[i].y, x = geom[i].x, h = geom[i].h, w = geom[i].w;
 		if(h<1){ h = 1; geom[i].h = 1; }
 		if(w<1){ w = 1; geom[i].w = 1; }
@@ -71,34 +71,34 @@ static void process_rules(){
 		plane_options.x = x;
 		plane_options.rows = h;
 		plane_options.cols = w;
-		rules[i].window = ncplane_create(notcurses_stdplane(nc), &plane_options);	//create plane
+		widgets[i].window = ncplane_create(notcurses_stdplane(nc), &plane_options);	//create plane
 		nccell base_cell = NCCELL_TRIVIAL_INITIALIZER;
-		if(rules[i].flags&OPAQUE){
+		if(widgets[i].flags&OPAQUE){
 			nccell_set_bg_alpha(&base_cell, NCALPHA_OPAQUE);
-		}else if(rules[i].flags&BLEND_BACKGROUND){
+		}else if(widgets[i].flags&BLEND_BACKGROUND){
 			nccell_set_bg_alpha(&base_cell, NCALPHA_BLEND);
 		}else{
 			nccell_set_bg_alpha(&base_cell, NCALPHA_TRANSPARENT);
 		}
 		nccell_set_fg_alpha(&base_cell, NCALPHA_OPAQUE);
-		if(rules[i].flags&BOLD) {
+		if(widgets[i].flags&BOLD) {
 			nccell_on_styles(&base_cell, NCSTYLE_BOLD);
-			ncplane_on_styles(rules[i].window, NCSTYLE_BOLD);
+			ncplane_on_styles(widgets[i].window, NCSTYLE_BOLD);
 		}
-		if(rules[i].flags&ITALIC) {
+		if(widgets[i].flags&ITALIC) {
 			nccell_on_styles(&base_cell, NCSTYLE_ITALIC);
-			ncplane_on_styles(rules[i].window, NCSTYLE_ITALIC);
+			ncplane_on_styles(widgets[i].window, NCSTYLE_ITALIC);
 		}
-		ncplane_set_base_cell(rules[i].window, &base_cell);
+		ncplane_set_base_cell(widgets[i].window, &base_cell);
 
-		if(rules[i].flags&DRAW_BOX) draw_box(rules[i].window);
+		if(widgets[i].flags&DRAW_BOX) draw_box(widgets[i].window);
 #else
-		rules[i].window = newwin(h, w, y, x);
-		if(rules[i].flags&BOLD) wattron(rules[i].window, A_BOLD);
+		widgets[i].window = newwin(h, w, y, x);
+		if(widgets[i].flags&BOLD) wattron(widgets[i].window, A_BOLD);
 #ifdef A_ITALIC
-		if(rules[i].flags&ITALIC) wattron(rules[i].window, A_ITALIC);
+		if(widgets[i].flags&ITALIC) wattron(widgets[i].window, A_ITALIC);
 #endif
-		if(rules[i].flags&DRAW_BOX) draw_box(rules[i].window);
+		if(widgets[i].flags&DRAW_BOX) draw_box(widgets[i].window);
 #endif
 	}
 }
@@ -122,10 +122,10 @@ static void* update_function(void* _){
 }
 
 static void start_display(){
-	process_rules();
-	//create a pthread per rule
-	for(unsigned short i=0; i<rules_n; i++){
-		pthread_create(&rule_threads[i], NULL, rules[i].function, &rules[i]);
+	process_widgets();
+	//create a pthread per widget
+	for(unsigned short i=0; i<widgets_n; i++){
+		pthread_create(&widget_threads[i], NULL, widgets[i].widget, &widgets[i]);
 	}
 	//create a pthread to update the screen
 	pthread_create(&update_thread, NULL, update_function, NULL);
@@ -134,16 +134,16 @@ static void start_display(){
 static void end_display(){
 	//cancel all threads other than input
 	pthread_cancel(update_thread);
-	for(unsigned short i=0; i<rules_n; i++){
-		pthread_cancel(rule_threads[i]);
+	for(unsigned short i=0; i<widgets_n; i++){
+		pthread_cancel(widget_threads[i]);
 	}
 	//wait for them to cancel
 	pthread_join(update_thread, NULL);
-	for(unsigned short i=0; i<rules_n; i++){
-		pthread_join(rule_threads[i], NULL);
+	for(unsigned short i=0; i<widgets_n; i++){
+		pthread_join(widget_threads[i], NULL);
 #ifndef USE_NOTCURSES
-		draw_lock(); //serialize against rule threads still being cancelled that may still be drawing
-		delwin(rules[i].window);
+		draw_lock(); //serialize against widget threads still being cancelled that may still be drawing
+		delwin(widgets[i].window);
 		draw_unlock();
 #endif
 	}
@@ -269,9 +269,9 @@ int main(int argc, char** argv){
 #endif
 
 	pthread_t input_thread;
-	rule_threads = malloc(sizeof(pthread_t)*rules_n);
-	if(rule_threads == NULL){
-		fprintf(stderr, "Failed to allocate rule threads\n");
+	widget_threads = malloc(sizeof(pthread_t)*widgets_n);
+	if(widget_threads == NULL){
+		fprintf(stderr, "Failed to allocate widget threads\n");
 #ifdef USE_NOTCURSES
 		notcurses_stop(nc);
 #else
@@ -299,7 +299,7 @@ int main(int argc, char** argv){
 	pthread_join(resize_thread, NULL);
 #endif
 	end_display();
-	free(rule_threads);
+	free(widget_threads);
 
 #ifdef USE_NOTCURSES
 	return notcurses_stop(nc);	//close notcurses, return 0 if success

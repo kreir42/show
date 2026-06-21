@@ -34,11 +34,11 @@ enum{ START=0, CENTER, END }; //a point along an axis: top/left, middle, or bott
 
 //reference target for an anchor or a matched size
 #define SCREEN	0 //default so an omitted anchor means "top-left at the screen's top-left"
-#define RULE(i)	((i)+1) //RULE(i) references the rule at index i in rules[] (use an enum of names for readability — see the configs).
+#define WIDGET(i)	((i)+1) //WIDGET(i) references the widget at index i in widgets[] (use an enum of names for readability — see the configs).
 
 //placement along one axis
 struct anchor{
-	int ref;		//SCREEN or RULE(index)
+	int ref;		//SCREEN or WIDGET(index)
 	char ref_point;		//START|CENTER|END on the reference
 	char self_point;	//START|CENTER|END on this widget
 	float offset;		//cells, or a fraction of the screen's axis if rel!=0
@@ -50,11 +50,11 @@ enum{ SZ_ABS=0, SZ_REL, SZ_MATCH }; //absolute cells, fraction of screen, or equ
 struct extent{
 	char mode;		//SZ_ABS|SZ_REL|SZ_MATCH
 	float value;		//cells (SZ_ABS) or fraction of screen (SZ_REL). ignored for SZ_MATCH
-	int ref;		//RULE(index) whose size to match, if mode==SZ_MATCH
+	int ref;		//WIDGET(index) whose size to match, if mode==SZ_MATCH
 };
 
-struct rule{
-	void* (*function)(void* input);	//function that will run the rule
+struct widget{
+	void* (*widget)(void* input);	//the widget's thread function
 	struct anchor y, x; //placement of the top and left edge
 	struct extent h, w; //height and width
 	int time;
@@ -68,7 +68,7 @@ struct rule{
 	void* data;
 };
 
-struct rule_geom{ int y, x, h, w; }; //resolved absolute geometry, computed once per layout by process_rules
+struct widget_geom{ int y, x, h, w; }; //resolved absolute geometry, computed once per layout by process_widgets
 
 #ifdef USE_NOTCURSES
 void draw_box(struct ncplane* plane){
@@ -123,8 +123,8 @@ void draw_box(WINDOW* window){
 }
 #endif
 
-//report the rule's size as resolved by process_rules at the last layout. defined in show.h
-static void get_size(struct rule* rule, int* h, int* w);
+//report the widget's size as resolved by process_widgets at the last layout. defined in show.h
+static void get_size(struct widget* widget, int* h, int* w);
 
 #ifndef USE_NOTCURSES
 //ncurses is not thread-safe, so all ncurses access must be serialized through this mutex
@@ -142,20 +142,20 @@ static inline void draw_unlock(void){
 }
 #endif
 
-static inline void stage_refresh(struct rule* rule){
+static inline void stage_refresh(struct widget* widget){
 #ifndef USE_NOTCURSES
 	draw_lock();
-	wnoutrefresh(rule->window);
+	wnoutrefresh(widget->window);
 	draw_unlock();
 #endif
 }
 
-static inline void draw_string(struct rule* rule, int y, int x, const char* str){
+static inline void draw_string(struct widget* widget, int y, int x, const char* str){
 #ifdef USE_NOTCURSES
-	ncplane_putstr_yx(rule->window, y, x, str);
+	ncplane_putstr_yx(widget->window, y, x, str);
 #else
 	draw_lock();
-	mvwaddstr(rule->window, y, x, str);
+	mvwaddstr(widget->window, y, x, str);
 	draw_unlock();
 #endif
 }
@@ -173,10 +173,10 @@ static int big_font_pixel(const char* str, int ny, int nx){
 	return (big_font[c][ny]>>(BIG_FONT_W-1-col))&1;
 }
 
-//render a string (only digits and ':') in block letters scaled to fill the rule's h x w using half-block glyphs
-static void draw_big_string(struct rule* rule, const char* str){
+//render a string (only digits and ':') in block letters scaled to fill the widget's h x w using half-block glyphs
+static void draw_big_string(struct widget* widget, const char* str){
 	int h, w;
-	get_size(rule, &h, &w);
+	get_size(widget, &h, &w);
 	int n = strlen(str);
 	if(n<1) return;
 	int native_w = n*(BIG_FONT_W+1) - 1; //no trailing gap after the last glyph
@@ -204,9 +204,9 @@ static void draw_big_string(struct rule* rule, const char* str){
 			idx += len;
 		}
 		row[idx] = '\0';
-		draw_string(rule, r, 0, row); //draw entire row
+		draw_string(widget, r, 0, row); //draw entire row
 	}
-	stage_refresh(rule);
+	stage_refresh(widget);
 	pthread_cleanup_pop(1); //frees row, balances the push macro
 }
 

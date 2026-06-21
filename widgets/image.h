@@ -2,11 +2,11 @@
 #include <sys/stat.h>
 #include <time.h>
 
-static inline void draw_image(struct rule* rule, const char* path) {
+static inline void draw_image(struct widget* widget, const char* path) {
 	struct ncvisual* visual = ncvisual_from_file(path);
 	if (visual) {
 		struct ncvisual_options vopts = {
-			.n = rule->window,
+			.n = widget->window,
 			.scaling = NCSCALE_SCALE,
 			.y = NCALIGN_CENTER,
 			.x = NCALIGN_CENTER,
@@ -15,24 +15,24 @@ static inline void draw_image(struct rule* rule, const char* path) {
 		};
 		ncvisual_blit(nc, visual, &vopts);
 		ncvisual_destroy(visual);
-		stage_refresh(rule);
+		stage_refresh(widget);
 	}
 }
 
 void* image(void* input){
-	struct rule* rule = input;
-	char* path = rule->data;
-	int t = rule->time;
+	struct widget* widget = input;
+	char* path = widget->data;
+	int t = widget->time;
 
 	if (t <= 0) {
-		draw_image(rule, path);
+		draw_image(widget, path);
 	} else {
 		time_t last_mtime = 0;
 		while(1){
 			struct stat st;
 			if(stat(path, &st) == 0 && st.st_mtime > last_mtime){
 				last_mtime = st.st_mtime;
-				draw_image(rule, path);
+				draw_image(widget, path);
 			}
 			sleep(t);
 		}
