@@ -51,6 +51,13 @@ static struct widget widgets[] = {
 		.x = {.self_point = CENTER, .ref_point = CENTER},
 		.flags = DRAW_BOX | BLEND_BACKGROUND,
 	},
+        {
+                .widget = progressbar, .time = 1,
+                .data = &(struct plot_data){ .source = "awk 'BEGIN{srand();print int(rand()*100)}'",
+                                             .min = 0, .max = 100, .color = 0x00ff00, .bg_color = 0x333333 },
+                .h = {SZ_ABS, 1}, .w = {SZ_ABS, 40},
+                .x = {.offset = 1}, .y = {.offset = 1},
+        },
 };
 
 #include "show.h"

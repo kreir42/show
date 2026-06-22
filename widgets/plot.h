@@ -5,6 +5,7 @@ struct plot_data{
 	const char* source;	//shell command printing a number
 	double min, max;	//expected value range. defines the bar's empty/full endpoints
 	uint32_t color;		//0xRRGGBB main color. 0 = terminal default foreground
+	uint32_t bg_color;	//0xRRGGBB color of the unfilled parts. 0 = terminal default background
 	int flags;		//plot-specific modifiers
 };
 
@@ -19,23 +20,29 @@ static short plot_next_pair(void){
 	if(next >= COLOR_PAIRS) return COLOR_PAIRS-1; //out of pairs: reuse the last one
 	return next++;
 }
+//approximate a 0xRRGGBB color onto the xterm-256 palette, or -1 (terminal default) when color==0
+static short plot_color_index(uint32_t color){
+	if(color==0) return -1;
+	int r = (color>>16)&0xff, g = (color>>8)&0xff, b = color&0xff;
+	return 16 + ((r*5+127)/255)*36 + ((g*5+127)/255)*6 + ((b*5+127)/255);
+}
 #endif
 
-//set the widget's foreground color before drawing. color==0 leaves the terminal default
-static inline void plot_set_color(struct widget* widget, uint32_t color){
-	int r = (color>>16)&0xff, g = (color>>8)&0xff, b = color&0xff;
+//set the widget's foreground/background colors before drawing. a 0 color leaves the terminal default
+static inline void plot_set_color(struct widget* widget, uint32_t color, uint32_t bg_color){
 #ifdef USE_NOTCURSES
 	if(color==0) ncplane_set_fg_default(widget->window);
-	else ncplane_set_fg_rgb8(widget->window, r, g, b);
+	else ncplane_set_fg_rgb8(widget->window, (color>>16)&0xff, (color>>8)&0xff, color&0xff);
+	if(bg_color==0) ncplane_set_bg_default(widget->window);
+	else ncplane_set_bg_rgb8(widget->window, (bg_color>>16)&0xff, (bg_color>>8)&0xff, bg_color&0xff);
 #else
-	if(color==0) return; //leave default fg
-	//each plot thread uses one constant color, so allocate a single pair once and reuse it
+	if(color==0 && bg_color==0) return; //both default: nothing to set
+	//each plot thread uses one constant fg/bg, so allocate a single pair once and reuse it
 	static __thread short pair = 0;
 	draw_lock(); //init_pair/wattron touch global+window ncurses state
 	if(pair==0){
-		short idx = 16 + ((r*5+127)/255)*36 + ((g*5+127)/255)*6 + ((b*5+127)/255); //RGB -> xterm-256
 		pair = plot_next_pair();
-		init_pair(pair, idx, -1);
+		init_pair(pair, plot_color_index(color), plot_color_index(bg_color));
 	}
 	wattron(widget->window, COLOR_PAIR(pair));
 	draw_unlock();
@@ -80,7 +87,7 @@ void* progressbar(void* input){
 	char* buf = malloc(rowsize);
 	if(!buf) return NULL;
 	pthread_cleanup_push(free, buf); //free on thread cancel
-	plot_set_color(widget, data->color);
+	plot_set_color(widget, data->color, data->bg_color);
 	do{
 		double f = progressbar_fraction(data);
 		long eighths = lround(f * w * 8);
@@ -114,7 +121,7 @@ void* vertical_progressbar(void* input){
 	char* buf = malloc(rowsize*3); //three rows: full, partial, blank
 	if(!buf) return NULL;
 	pthread_cleanup_push(free, buf); //free on thread cancel
-	plot_set_color(widget, data->color);
+	plot_set_color(widget, data->color, data->bg_color);
 	char *full_row = buf, *part_row = buf+rowsize, *blank_row = buf+rowsize*2;
 	//the full and blank rows never change, so build them once instead of per output row
 	plot_fill_row(full_row, PLOT_FULL, w);

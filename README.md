@@ -135,6 +135,7 @@ struct plot_data{
     const char* source; // shell command, ran every `time` seconds, that prints a number
     double min, max;    // expected value range
     uint32_t color;     // 0xRRGGBB main color; 0 = terminal default foreground
+    uint32_t bg_color;  // 0xRRGGBB color of the unfilled parts; 0 = terminal default background
 };
 ```
 
