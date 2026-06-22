@@ -12,6 +12,8 @@ NCURSES_CFLAGS := $(shell pkg-config --cflags ncursesw)
 
 #Every header in widgets/ is auto-included into include.h via the generated widgets.h
 WIDGET_HEADERS := $(wildcard widgets/*.h)
+#Per-type plot headers are NOT auto-included, but list them so editing one still triggers a rebuild
+PLOT_HEADERS := $(wildcard widgets/plot/*.h)
 
 
 .PHONY: all clean
@@ -26,7 +28,7 @@ widgets.h: $(WIDGET_HEADERS)
 	@echo "Generating $@"
 	@printf '#include "%s"\n' $(WIDGET_HEADERS) > $@
 
-%: %.config.c widgets.h *.h
+%: %.config.c widgets.h *.h $(PLOT_HEADERS)
 	@if grep -q "^[^/]*#define USE_NOTCURSES" $<; then\
 		echo "Compiling $< with notcurses";\
 		$(CC) $< -o $@ $(LIB) $(CFLAGS) $(NOTCURSES_LIB) $(NOTCURSES_CFLAGS);\
