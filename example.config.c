@@ -58,6 +58,13 @@ static struct widget widgets[] = {
                 .h = {SZ_ABS, 1}, .w = {SZ_ABS, 40},
                 .x = {.offset = 1}, .y = {.offset = 1},
         },
+        {
+                .widget = sparkline, .time = 1,
+                .data = &(struct plot_data){ .source = "awk 'BEGIN{srand();print int(rand()*100)}'",
+                                             .min = 0, .max = 100, .color = 0x00ff00, .bg_color = 0x222222 },
+                .h = {SZ_ABS, 6}, .w = {SZ_ABS, 40},
+                .x = {.offset = 1}, .y = {.offset = 3},
+        },
 };
 
 #include "show.h"

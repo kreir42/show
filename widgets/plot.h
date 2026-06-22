@@ -112,3 +112,4 @@ static void plot_live_cleanup(void* arg){
 }
 
 #include "plot/progressbar.h"
+#include "plot/sparkline.h"

@@ -160,6 +160,14 @@ Like `progressbar`, but `source` is launched **once** and each line of numeric o
 ### `vertical_progressbar_live`
 Like `progressbar_live`, but fills bottom-to-top.
 
+### `sparkline`
+A scrolling history of the last samples, one column per sample drawn as a vertical eighth-block bar whose height encodes the value. The history length equals the widget's width: each new sample shifts the columns left, so the plot fills in from the right and scrolls. Resamples every `time` seconds.
+
+By default the vertical scale spans `min`..`max` like the progress bars. If `min == max` the plot **auto-scales**: each frame it rescales to the running minimum and maximum of the samples currently on screen, so the visible range always fills the height.
+
+### `sparkline_live`
+Like `sparkline`, but `source` is launched **once** and each line of numeric output it prints pushes a new sample (`time` is ignored). The plot starts empty and fills from the right as values arrive. If the command exits, the last frame stays on screen.
+
 ## Keys
 
 | Key          | Action |
