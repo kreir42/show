@@ -126,6 +126,33 @@ Displays the time in large block digits scaled to fill the widget area. Takes a 
 ### `image` *(notcurses only)*
 Displays an image file, scaled to the widget area. Checks every `time` seconds and re-renders if the file's modification time increases.
 
+## Plot widgets
+
+Plot widgets sample a shell command over time and render the value graphically. Instead of a string, their `data` field points to a `plot_data` struct:
+
+```c
+struct plot_data{
+    const char* source; // shell command, ran every `time` seconds, that prints a number
+    double min, max;    // expected value range
+    uint32_t color;     // 0xRRGGBB main color; 0 = terminal default foreground
+};
+```
+
+Supply it with a compound literal (or a named static):
+
+```c
+{ .widget = progressbar, .time = 1,
+  .data = &(struct plot_data){ .source = "cat /sys/class/power_supply/BAT0/capacity",
+                               .min = 0, .max = 100, .color = 0x00ff00 },
+  .h = {SZ_ABS, 1}, .w = {SZ_ABS, 40} },
+```
+
+### `progressbar`
+A horizontal bar that fills left-to-right in proportion to where the sampled value sits between `min` and `max`. Uses eighth-block glyphs so the bar end is accurate to ⅛ of a cell. Resamples every `time` seconds (or draws once if `time <= 0`).
+
+### `vertical_progressbar`
+Like `progressbar`, but fills bottom-to-top.
+
 ## Keys
 
 | Key          | Action |
