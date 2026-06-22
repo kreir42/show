@@ -154,6 +154,12 @@ A horizontal bar that fills left-to-right in proportion to where the sampled val
 ### `vertical_progressbar`
 Like `progressbar`, but fills bottom-to-top.
 
+### `progressbar_live`
+Like `progressbar`, but `source` is launched **once** and each line of numeric output it prints updates the bar live, for a long-running source (`time` is ignored). The bar starts empty until the first value arrives; if the command exits, the last frame stays on screen.
+
+### `vertical_progressbar_live`
+Like `progressbar_live`, but fills bottom-to-top.
+
 ## Keys
 
 | Key          | Action |
