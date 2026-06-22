@@ -132,12 +132,14 @@ Plot widgets sample a shell command over time and render the value graphically. 
 
 ```c
 struct plot_data{
-    const char* source; // shell command, ran every `time` seconds, that prints a number
+    const char* source; // shell command that prints a number or, for the `_file` widgets, a file path
     double min, max;    // expected value range
     uint32_t color;     // 0xRRGGBB main color; 0 = terminal default foreground
     uint32_t bg_color;  // 0xRRGGBB color of the unfilled parts; 0 = terminal default background
 };
 ```
+
+Each plot comes in three flavours distinguished by how `source` is read: the plain widget reruns `source` as a command every `time` seconds; the `_live` widget launches `source` once and streams values from its output; the `_file` widget treats `source` as a **file path**, polls its modification time every `time` seconds, and redraws when it changes.
 
 Supply it with a compound literal (or a named static):
 
@@ -151,14 +153,20 @@ Supply it with a compound literal (or a named static):
 ### `progressbar`
 A horizontal bar that fills left-to-right in proportion to where the sampled value sits between `min` and `max`. Uses eighth-block glyphs so the bar end is accurate to ⅛ of a cell. Resamples every `time` seconds (or draws once if `time <= 0`).
 
-### `vertical_progressbar`
-Like `progressbar`, but fills bottom-to-top.
-
 ### `progressbar_live`
 Like `progressbar`, but `source` is launched **once** and each line of numeric output it prints updates the bar live, for a long-running source (`time` is ignored). The bar starts empty until the first value arrives; if the command exits, the last frame stays on screen.
 
+### `progressbar_file`
+Like `progressbar`, but `source` is a **file path**. The bar shows the file's **last line**, redrawn whenever the file's modification time changes (polled every `time` seconds). Non-numeric and blank lines are skipped, so the value tracks the last numeric line written.
+
+### `vertical_progressbar`
+Like `progressbar`, but fills bottom-to-top.
+
 ### `vertical_progressbar_live`
 Like `progressbar_live`, but fills bottom-to-top.
+
+### `vertical_progressbar_file`
+Like `progressbar_file`, but fills bottom-to-top.
 
 ### `sparkline`
 A scrolling history of the last samples, one column per sample drawn as a vertical eighth-block bar whose height encodes the value. The history length equals the widget's width: each new sample shifts the columns left, so the plot fills in from the right and scrolls. Resamples every `time` seconds.
@@ -167,6 +175,9 @@ By default the vertical scale spans `min`..`max` like the progress bars. If `min
 
 ### `sparkline_live`
 Like `sparkline`, but `source` is launched **once** and each line of numeric output it prints pushes a new sample (`time` is ignored). The plot starts empty and fills from the right as values arrive. If the command exits, the last frame stays on screen.
+
+### `sparkline_file`
+Like `sparkline`, but `source` is a **file path**. Plots the file's **last `w` lines** (one per column, oldest on the left), refilled from the file's tail and redrawn whenever its modification time changes (polled every `time` seconds). A file with fewer than `w` numeric lines is right-aligned with the leftmost columns left blank. Like `sparkline`, `min == max` auto-scales the vertical range.
 
 ## Keys
 

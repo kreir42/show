@@ -96,3 +96,31 @@ void* sparkline_live(void* input){
 	pthread_cleanup_pop(1); //frees block, balances the push macro
 	return NULL;
 }
+
+//like sparkline, but source is a file path; plots the file's last w lines, redrawn whenever its mtime changes (polled every widget->time seconds)
+void* sparkline_file(void* input){
+	struct widget* widget = input;
+	struct plot_data* data = widget->data;
+	int h, w;
+	get_size(widget, &h, &w);
+	SPARKLINE_ALLOC(block, samples, col_eighths, rowbuf, w);
+	pthread_cleanup_push(free, block); //free on thread cancel
+	plot_set_color(widget, data->color, data->bg_color);
+	if(widget->time>0){
+		time_t last_mtime = 0;
+		struct stat st;
+		while(1){
+			if(stat(data->source, &st)==0 && st.st_mtime>last_mtime){
+				last_mtime = st.st_mtime;
+				plot_read_tail(data->source, samples, w); //refill the whole buffer from the file's tail
+				sparkline_draw(widget, rowbuf, col_eighths, samples, h, w, data);
+			}
+			sleep(widget->time);
+		}
+	}else{
+		plot_read_tail(data->source, samples, w);
+		sparkline_draw(widget, rowbuf, col_eighths, samples, h, w, data);
+	}
+	pthread_cleanup_pop(1); //frees block, balances the push macro
+	return NULL;
+}

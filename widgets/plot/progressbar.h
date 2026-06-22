@@ -40,7 +40,7 @@ void* progressbar(void* input){
 	struct plot_data* data = widget->data;
 	int h, w;
 	get_size(widget, &h, &w);
-	size_t rowsize = (size_t)w*3 + 1; //up to 3 UTF-8 bytes per block glyph, +1 for NUL
+	size_t rowsize = (size_t)w*3 + 1; //up to 3 UTF-8 bytes per block glyph, +1 for NULL
 	char* buf = malloc(rowsize);
 	if(!buf) return NULL;
 	pthread_cleanup_push(free, buf); //free on thread cancel
@@ -63,7 +63,7 @@ void* vertical_progressbar(void* input){
 	struct plot_data* data = widget->data;
 	int h, w;
 	get_size(widget, &h, &w);
-	size_t rowsize = (size_t)w*3 + 1; //up to 3 UTF-8 bytes per block glyph, +1 for NUL
+	size_t rowsize = (size_t)w*3 + 1; //up to 3 UTF-8 bytes per block glyph, +1 for NULL
 	char* buf = malloc(rowsize*3); //three rows: full, partial, blank
 	if(!buf) return NULL;
 	pthread_cleanup_push(free, buf); //free on thread cancel
@@ -90,7 +90,7 @@ void* progressbar_live(void* input){
 	struct plot_data* data = widget->data;
 	int h, w;
 	get_size(widget, &h, &w);
-	size_t rowsize = (size_t)w*3 + 1; //up to 3 UTF-8 bytes per block glyph, +1 for NUL
+	size_t rowsize = (size_t)w*3 + 1; //up to 3 UTF-8 bytes per block glyph, +1 for NULL
 	char* buf = malloc(rowsize);
 	if(!buf) return NULL;
 	pthread_cleanup_push(free, buf); //free on thread cancel
@@ -116,7 +116,7 @@ void* vertical_progressbar_live(void* input){
 	struct plot_data* data = widget->data;
 	int h, w;
 	get_size(widget, &h, &w);
-	size_t rowsize = (size_t)w*3 + 1; //up to 3 UTF-8 bytes per block glyph, +1 for NUL
+	size_t rowsize = (size_t)w*3 + 1; //up to 3 UTF-8 bytes per block glyph, +1 for NULL
 	char* buf = malloc(rowsize*3); //three rows: full, partial, blank
 	if(!buf) return NULL;
 	pthread_cleanup_push(free, buf); //free on thread cancel
@@ -134,6 +134,65 @@ void* vertical_progressbar_live(void* input){
 			vertical_progressbar_draw(widget, full_row, part_row, blank_row, plot_clamp(data, strtod(line, NULL)), h, w);
 		while(1) pause(); //command exited: keep the final frame until cancelled
 		pthread_cleanup_pop(1); //unreachable, balances the push macro
+	}
+	pthread_cleanup_pop(1); //frees buf, balances the push macro
+	return NULL;
+}
+
+//like progressbar, but source is a file path; the bar shows its last line, redrawn whenever the file's mtime changes (polled every widget->time seconds)
+void* progressbar_file(void* input){
+	struct widget* widget = input;
+	struct plot_data* data = widget->data;
+	int h, w;
+	get_size(widget, &h, &w);
+	size_t rowsize = (size_t)w*3 + 1; //up to 3 UTF-8 bytes per block glyph, +1 for NULL
+	char* buf = malloc(rowsize);
+	if(!buf) return NULL;
+	pthread_cleanup_push(free, buf); //free on thread cancel
+	plot_set_color(widget, data->color, data->bg_color);
+	if(widget->time>0){
+		time_t last_mtime = 0;
+		struct stat st;
+		while(1){
+			if(stat(data->source, &st)==0 && st.st_mtime>last_mtime){
+				last_mtime = st.st_mtime;
+				progressbar_draw(widget, buf, plot_clamp(data, plot_read_last(data->source)), h, w);
+			}
+			sleep(widget->time);
+		}
+	}else{
+		progressbar_draw(widget, buf, plot_clamp(data, plot_read_last(data->source)), h, w);
+	}
+	pthread_cleanup_pop(1); //frees buf, balances the push macro
+	return NULL;
+}
+
+//like vertical_progressbar, but source is a file path; the bar shows its last line, redrawn on each mtime change (polled every widget->time seconds)
+void* vertical_progressbar_file(void* input){
+	struct widget* widget = input;
+	struct plot_data* data = widget->data;
+	int h, w;
+	get_size(widget, &h, &w);
+	size_t rowsize = (size_t)w*3 + 1; //up to 3 UTF-8 bytes per block glyph, +1 for NULL
+	char* buf = malloc(rowsize*3); //three rows: full, partial, blank
+	if(!buf) return NULL;
+	pthread_cleanup_push(free, buf); //free on thread cancel
+	plot_set_color(widget, data->color, data->bg_color);
+	char *full_row = buf, *part_row = buf+rowsize, *blank_row = buf+rowsize*2;
+	plot_fill_row(full_row, PLOT_FULL, w);
+	plot_fill_row(blank_row, " ", w);
+	if(widget->time>0){
+		time_t last_mtime = 0;
+		struct stat st;
+		while(1){
+			if(stat(data->source, &st)==0 && st.st_mtime>last_mtime){
+				last_mtime = st.st_mtime;
+				vertical_progressbar_draw(widget, full_row, part_row, blank_row, plot_clamp(data, plot_read_last(data->source)), h, w);
+			}
+			sleep(widget->time);
+		}
+	}else{
+		vertical_progressbar_draw(widget, full_row, part_row, blank_row, plot_clamp(data, plot_read_last(data->source)), h, w);
 	}
 	pthread_cleanup_pop(1); //frees buf, balances the push macro
 	return NULL;

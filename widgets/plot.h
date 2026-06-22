@@ -3,6 +3,8 @@
 #include <math.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <time.h>
 #include <pty.h>
 
 //configuration for every plot widget. supplied via widget->data instead of a string
@@ -71,6 +73,78 @@ static inline double plot_sample(const char* source){
 	double v = NAN;
 	if(fgets(buf, sizeof(buf), fp)!=NULL) v = strtod(buf, NULL);
 	pclose(fp);
+	return v;
+}
+
+//parse a contiguous block of complete lines, keeping the last "want" numeric values in out (newest last), right-aligned with NAN padding. returns how many numeric lines were found
+static int plot_parse_region(const char* region, size_t len, double* out, int want){
+	for(int i=0; i<want; i++) out[i] = NAN;
+	int count = 0;
+	size_t i = 0;
+	while(i<len){
+		size_t j = i;
+		while(j<len && region[j]!='\n') j++; //line is region[i..j)
+		size_t linelen = j-i;
+		if(linelen>0){
+			char tmp[64]; //read at most 63 bytes per line
+			size_t cpy = linelen < sizeof(tmp)-1 ? linelen : sizeof(tmp)-1;
+			memcpy(tmp, region+i, cpy); tmp[cpy] = '\0';
+			char* end;
+			double v = strtod(tmp, &end);
+			if(end!=tmp){ //skip non-numeric/blank lines
+				if(count<want) out[count++] = v;
+				else { memmove(out, out+1, (size_t)(want-1)*sizeof(double)); out[want-1] = v; } //ring: drop oldest
+			}
+		}
+		i = j+1; //start of next line
+	}
+	if(count>0 && count<want){ //right-align the parsed values, NAN-padding the unused leading columns
+		memmove(out+(want-count), out, (size_t)count*sizeof(double));
+		for(int k=0; k<want-count; k++) out[k] = NAN;
+	}
+	return count;
+}
+
+//fill out[0..want-1] with the file's last "want" numeric lines (newest last), right-aligned with NAN padding when the file is shorter
+//reads the file backward a 4KB block at a time and stops once enough numeric lines are in hand
+static void plot_read_tail(const char* path, double* out, int want){
+	for(int i=0; i<want; i++) out[i] = NAN;
+	if(want<=0) return; //TODO can that happen?
+	FILE* fp = fopen(path, "rb");
+	if(fp==NULL) return;
+	if(fseeko(fp, 0, SEEK_END)!=0){ fclose(fp); return; } //jump to end
+	off_t pos = ftello(fp); //pos = filesize
+	if(pos<0){ fclose(fp); return; }
+	char* buf = NULL; size_t buflen = 0, bufcap = 0;
+	const size_t CHUNK = 4096; //read in 4KB chunks
+	while(pos>0){
+		size_t r = pos < (off_t)CHUNK ? (size_t)pos : CHUNK; //read 4KB chunk, or whatever's left
+		if(buflen+r > bufcap){
+			char* nb = realloc(buf, buflen+r); //grow the buffer
+			if(nb==NULL) break; //out keeps whatever the previous parse found
+			buf = nb; bufcap = buflen+r;
+		}
+		memmove(buf+r, buf, buflen); //make room, keeping bytes in file order (oldest..newest)
+		if(fseeko(fp, pos-(off_t)r, SEEK_SET)!=0 || fread(buf, 1, r, fp)!=r) break; //read to buffer
+		buflen += r; pos -= (off_t)r;
+		//only lines after the first newline are whole, unless we've reached the start of the file
+		const char* region = buf; size_t regionlen = buflen;
+		if(pos>0){
+			char* nl = memchr(buf, '\n', buflen);
+			if(nl==NULL) continue; //no line boundary yet: read another block
+			region = nl+1; regionlen = buflen - (size_t)(nl+1 - buf);
+		}
+		//parse and see if we have enough lines
+		if(plot_parse_region(region, regionlen, out, want) >= want) break;
+	}
+	free(buf);
+	fclose(fp);
+}
+
+//read the last numeric line of a file, or NAN if it is missing or has none
+static double plot_read_last(const char* path){
+	double v;
+	plot_read_tail(path, &v, 1);
 	return v;
 }
 
