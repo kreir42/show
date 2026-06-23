@@ -49,8 +49,12 @@ static short plot_color_index(uint32_t color){
 }
 #endif
 
-//set the widget's foreground/background colors before drawing. a 0 color leaves the terminal default
-static inline void plot_set_color(struct widget* widget, uint32_t color, uint32_t bg_color){
+#ifndef USE_NOTCURSES
+static __thread short plot_pair = 0; //this thread's cached fg/bg color pair (0 = not yet allocated)
+#endif
+
+//turn on the plot's foreground/background color for the cells drawn next. a 0 color/bg leaves the terminal default
+static inline void plot_color_on(struct widget* widget, uint32_t color, uint32_t bg_color){
 #ifdef USE_NOTCURSES
 	if(color==0) ncplane_set_fg_default(widget->window);
 	else ncplane_set_fg_rgb8(widget->window, (color>>16)&0xff, (color>>8)&0xff, color&0xff);
@@ -59,13 +63,26 @@ static inline void plot_set_color(struct widget* widget, uint32_t color, uint32_
 #else
 	if(color==0 && bg_color==0) return; //both default: nothing to set
 	//each plot thread uses one constant fg/bg, so allocate a single pair once and reuse it
-	static __thread short pair = 0;
 	draw_lock(); //init_pair/wattron touch global+window ncurses state
-	if(pair==0){
-		pair = plot_next_pair();
-		init_pair(pair, plot_color_index(color), plot_color_index(bg_color));
+	if(plot_pair==0){
+		plot_pair = plot_next_pair();
+		init_pair(plot_pair, plot_color_index(color), plot_color_index(bg_color));
 	}
-	wattron(widget->window, COLOR_PAIR(pair));
+	wattron(widget->window, COLOR_PAIR(plot_pair));
+	draw_unlock();
+#endif
+}
+
+//revert to the terminal default colors, so the axes and labels aren't tinted by the plot color
+static inline void plot_color_off(struct widget* widget, uint32_t color, uint32_t bg_color){
+#ifdef USE_NOTCURSES
+	(void)color; (void)bg_color;
+	ncplane_set_fg_default(widget->window);
+	ncplane_set_bg_default(widget->window);
+#else
+	if(color==0 && bg_color==0) return; //color was never turned on
+	draw_lock();
+	if(plot_pair!=0) wattroff(widget->window, COLOR_PAIR(plot_pair)); //clears just the color bits, leaving any bold/italic
 	draw_unlock();
 #endif
 }

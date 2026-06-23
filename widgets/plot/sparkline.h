@@ -21,6 +21,7 @@ static void sparkline_draw(struct widget* widget, char* rowbuf, int* col_eighths
 		if(f<0) f = 0; else if(f>1) f = 1; //clamp to [0,1]
 		col_eighths[c] = lround(f * h * 8);
 	}
+	plot_color_on(widget, data->color, data->bg_color); //the plot area carries the color; axes/labels stay terminal-default
 	for(int r=0; r<h; r++){
 		int from_bottom = h-1-r; //0 == bottom row
 		int idx = 0;
@@ -34,6 +35,7 @@ static void sparkline_draw(struct widget* widget, char* rowbuf, int* col_eighths
 		rowbuf[idx] = '\0';
 		draw_string(widget, r, pr.left, rowbuf);
 	}
+	plot_color_off(widget, data->color, data->bg_color);
 	if(pr.left) plot_draw_y_axis(widget, pr.left, h, lo, hi, data->flags);
 	if(pr.bottom){ //plot rows drawn, so rowbuf is free to reuse as the baseline scratch
 		plot_draw_x_axis(widget, rowbuf, pr.left, w, h);
@@ -70,7 +72,6 @@ void* sparkline(void* input){
 	struct plot_region pr = plot_layout(data->flags, h, w);
 	SPARKLINE_ALLOC(block, samples, col_eighths, rowbuf, pr.w);
 	pthread_cleanup_push(free, block); //free on thread cancel
-	plot_set_color(widget, data->color, data->bg_color);
 	if(widget->time>0){ //time==0 doesn't make sense for a sparkline
 		while(1){
 			sparkline_push(samples, pr.w, plot_sample(data->source));
@@ -91,7 +92,6 @@ void* sparkline_live(void* input){
 	struct plot_region pr = plot_layout(data->flags, h, w);
 	SPARKLINE_ALLOC(block, samples, col_eighths, rowbuf, pr.w);
 	pthread_cleanup_push(free, block); //free on thread cancel
-	plot_set_color(widget, data->color, data->bg_color);
 	struct plot_live_resources res = { 0, NULL };
 	res.fp = plot_spawn(data->source, &res.pid);
 	if(res.fp){
@@ -118,7 +118,6 @@ void* sparkline_file(void* input){
 	struct plot_region pr = plot_layout(data->flags, h, w);
 	SPARKLINE_ALLOC(block, samples, col_eighths, rowbuf, pr.w);
 	pthread_cleanup_push(free, block); //free on thread cancel
-	plot_set_color(widget, data->color, data->bg_color);
 	if(widget->time>0){
 		time_t last_mtime = 0;
 		struct stat st;

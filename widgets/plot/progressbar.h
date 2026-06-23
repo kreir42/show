@@ -15,7 +15,9 @@ static void progressbar_draw(struct widget* widget, char* buf, double f, struct 
 		idx += len;
 	}
 	buf[idx] = '\0';
+	plot_color_on(widget, data->color, data->bg_color); //the plot area carries the color; axes/labels stay terminal-default
 	for(int r=0; r<pr.h; r++) draw_string(widget, r, pr.left, buf); //same bar on every row
+	plot_color_off(widget, data->color, data->bg_color);
 	if(pr.bottom){ //bars already drawn, so buf is free to reuse as the baseline scratch
 		plot_draw_x_axis(widget, buf, pr.left, pr.w, pr.h);
 		if((data->flags & LABEL_X_AXIS) && pr.bottom>=2){
@@ -34,6 +36,7 @@ static void vertical_progressbar_draw(struct widget* widget, char* full_row, cha
 	long eighths = lround(f * pr.h * 8);
 	int full = eighths/8, rem = eighths%8;
 	if(rem) plot_fill_row(part_row, plot_fill_vertical[rem], pr.w); //only the partial row varies per frame
+	plot_color_on(widget, data->color, data->bg_color); //the plot area carries the color; axis/labels stay terminal-default
 	for(int r=0; r<pr.h; r++){
 		int from_bottom = pr.h-1-r; //0 == bottom row
 		char* drawn = (from_bottom < full) ? full_row
@@ -41,6 +44,7 @@ static void vertical_progressbar_draw(struct widget* widget, char* full_row, cha
 		            : blank_row;
 		draw_string(widget, r, pr.left, drawn);
 	}
+	plot_color_off(widget, data->color, data->bg_color);
 	if(pr.left) plot_draw_y_axis(widget, pr.left, pr.h, data->min, data->max, data->flags);
 	stage_refresh(widget);
 }
@@ -56,7 +60,6 @@ void* progressbar(void* input){
 	char* buf = malloc(rowsize);
 	if(!buf) return NULL;
 	pthread_cleanup_push(free, buf); //free on thread cancel
-	plot_set_color(widget, data->color, data->bg_color);
 	if(widget->time>0){
 		while(1){
 			progressbar_draw(widget, buf, plot_fraction(data), pr, data);
@@ -80,7 +83,6 @@ void* vertical_progressbar(void* input){
 	char* buf = malloc(rowsize*3); //three rows: full, partial, blank
 	if(!buf) return NULL;
 	pthread_cleanup_push(free, buf); //free on thread cancel
-	plot_set_color(widget, data->color, data->bg_color);
 	char *full_row = buf, *part_row = buf+rowsize, *blank_row = buf+rowsize*2;
 	//the full and blank rows never change, so build them once instead of per output row
 	plot_fill_row(full_row, PLOT_FULL, pr.w);
@@ -108,7 +110,6 @@ void* progressbar_live(void* input){
 	char* buf = malloc(rowsize);
 	if(!buf) return NULL;
 	pthread_cleanup_push(free, buf); //free on thread cancel
-	plot_set_color(widget, data->color, data->bg_color);
 	struct plot_live_resources res = { 0, NULL };
 	res.fp = plot_spawn(data->source, &res.pid);
 	if(res.fp){
@@ -135,7 +136,6 @@ void* vertical_progressbar_live(void* input){
 	char* buf = malloc(rowsize*3); //three rows: full, partial, blank
 	if(!buf) return NULL;
 	pthread_cleanup_push(free, buf); //free on thread cancel
-	plot_set_color(widget, data->color, data->bg_color);
 	char *full_row = buf, *part_row = buf+rowsize, *blank_row = buf+rowsize*2;
 	plot_fill_row(full_row, PLOT_FULL, pr.w);
 	plot_fill_row(blank_row, " ", pr.w);
@@ -165,7 +165,6 @@ void* progressbar_file(void* input){
 	char* buf = malloc(rowsize);
 	if(!buf) return NULL;
 	pthread_cleanup_push(free, buf); //free on thread cancel
-	plot_set_color(widget, data->color, data->bg_color);
 	if(widget->time>0){
 		time_t last_mtime = 0;
 		struct stat st;
@@ -194,7 +193,6 @@ void* vertical_progressbar_file(void* input){
 	char* buf = malloc(rowsize*3); //three rows: full, partial, blank
 	if(!buf) return NULL;
 	pthread_cleanup_push(free, buf); //free on thread cancel
-	plot_set_color(widget, data->color, data->bg_color);
 	char *full_row = buf, *part_row = buf+rowsize, *blank_row = buf+rowsize*2;
 	plot_fill_row(full_row, PLOT_FULL, pr.w);
 	plot_fill_row(blank_row, " ", pr.w);
