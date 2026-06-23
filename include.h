@@ -10,6 +10,7 @@
 #ifdef USE_NOTCURSES
 #include <notcurses/notcurses.h>
 extern struct notcurses* nc;
+static int pixel_support = 0; //>0 once startup confirms the terminal can blit pixel graphics
 #define BOX_HLINE "─"
 #define BOX_VLINE "│"
 #define BOX_URCORNER "┐"

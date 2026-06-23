@@ -59,9 +59,21 @@ static struct widget widgets[] = {
         },
         {
                 .widget = bar_sparkline, .time = 1,
-                .data = &(struct plot_data){ .source = "awk 'BEGIN{srand();print int(rand()*100)}'", .min = 0, .max = 100, .color = 0x00ff00, .bg_color = 0x222222, .flags = PLOT_X_AXIS|LABEL_X_AXIS|PLOT_Y_AXIS|LABEL_Y_AXIS },
+                .data = &(struct plot_data){ .source = "awk 'BEGIN{srand();print int(rand()*100)}'", .min = 0, .max = 100, .color = 0x00ff00, .flags = PLOT_X_AXIS|LABEL_X_AXIS|PLOT_Y_AXIS|LABEL_Y_AXIS },
                 .h = {SZ_ABS, 6}, .w = {SZ_ABS, 40},
                 .x = {.offset = 1}, .y = {.ref = WIDGET(7), .ref_point = END, .offset = 1},
+        },
+        {
+                .widget = pixel_line_sparkline, .time = 1,
+                .data = &(struct plot_data){ .source = "awk 'BEGIN{srand();print int(rand()*100)}'", .min = 0, .max = 100, .color = 0x33ccff, .flags = PLOT_X_AXIS|LABEL_X_AXIS|PLOT_Y_AXIS|LABEL_Y_AXIS },
+                .h = {SZ_ABS, 8}, .w = {SZ_ABS, 40},
+                .x = {.offset = 1}, .y = {.ref = WIDGET(8), .ref_point = END, .offset = 1},
+        },
+        {
+                .widget = pixel_steps_sparkline, .time = 1,
+                .data = &(struct plot_data){ .source = "awk 'BEGIN{srand();print int(rand()*100)}'", .min = 0, .max = 100, .color = 0xff9900, .flags = PLOT_X_AXIS|LABEL_X_AXIS|PLOT_Y_AXIS|LABEL_Y_AXIS },
+                .h = {SZ_ABS, 8}, .w = {SZ_ABS, 40},
+                .x = {.offset = 1}, .y = {.ref = WIDGET(9), .ref_point = END, .offset = 1},
         },
 };
 

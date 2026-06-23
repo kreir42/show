@@ -298,3 +298,4 @@ static inline void plot_history_push(double* samples, int count, double v){
 #include "plot/bar_sparkline.h"
 #include "plot/stairs_sparkline.h"
 #include "plot/braille_sparkline.h"
+#include "plot/pixel_sparkline.h"

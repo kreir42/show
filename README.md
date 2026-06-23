@@ -173,8 +173,12 @@ Every widget below also comes in `_live` and `_file` forms (e.g. `progressbar_li
 | `braille_line_sparkline` | Same history as a connected braille-dot line | sub-cell vertical resolution, 2 samples per column (2× history). Requires a braille-capable font. `NaN` breaks the line |
 | `braille_scatter_sparkline` | Same history as unconnected braille dots (a scatter) | sub-cell vertical resolution, 2 samples per column (2× history). Requires a braille-capable font |
 | `braille_bar_sparkline` | Like `bar_sparkline` on the braille grid: bars filled from the baseline | 2 samples per column (2× history), but 4 dot rows of vertical resolution (1/2 of `bar_sparkline`'s eighth-blocks). Requires a braille-capable font |
+| `pixel_line_sparkline` | Same history drawn as a true sloped line, rasterized into a bitmap and blitted with the pixel blitter | *notcurses only*; needs a pixel-capable terminal (sixel/kitty/…). Full sub-cell resolution in both axes; samples linearly interpolated. `NaN` breaks the line |
+| `pixel_steps_sparkline` | Same as `pixel_line_sparkline`, but a staircase (samples held flat, joined by vertical risers) | *notcurses only*; needs a pixel-capable terminal. No interpolation between samples |
 
 The **sparklines** scroll in from the right (newest sample on the right) and **auto-scale** the vertical range to the on-screen samples when `min == max`; otherwise, like the progress bars, they use the fixed `min`..`max` range.
+
+The **pixel** sparklines (`pixel_line_sparkline`, `pixel_steps_sparkline`, plus their `_live`/`_file` forms) render only on terminals that support pixel graphics; support is probed once at startup, and if it's missing they render nothing at all.
 
 ## Keys
 

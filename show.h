@@ -255,6 +255,8 @@ int main(int argc, char** argv){
 		fprintf(stderr, "Failed to initialize notcurses\n");
 		return 1;
 	}
+	//probe pixel-blitter support once, but only if some widget actually needs it
+	for(unsigned short i=0; i<widgets_n; i++) if(is_pixel_widget(widgets[i].widget)){ pixel_support = notcurses_check_pixel_support(nc); break; }
 #else
 	initscr();
 	noecho();
