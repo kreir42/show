@@ -1,7 +1,8 @@
 //sparkline: a scrolling history of the last w samples, one column per sample, drawn as vertical eighth-block bars
 
-//render the sample history. rowbuf is scratch of w*3+1 bytes; col_eighths is scratch of w ints; samples holds w raw values (NAN = no data)
-static void sparkline_draw(struct widget* widget, char* rowbuf, int* col_eighths, double* samples, int h, int w, struct plot_data* data){
+//render the sample history into the plot region. rowbuf is a scratch of pr.w*3+1 bytes (also reused for the baseline), and col_eighths of pr.w ints. samples holds pr.w raw values (NAN = no data). col_seconds is the time each column spans (0 disables X labels)
+static void sparkline_draw(struct widget* widget, char* rowbuf, int* col_eighths, double* samples, struct plot_region pr, struct plot_data* data, double col_seconds){
+	int w = pr.w, h = pr.h;
 	double lo, hi;
 	if(data->min != data->max){ //fixed range
 		lo = data->min; hi = data->max;
@@ -31,7 +32,16 @@ static void sparkline_draw(struct widget* widget, char* rowbuf, int* col_eighths
 			idx += len;
 		}
 		rowbuf[idx] = '\0';
-		draw_string(widget, r, 0, rowbuf);
+		draw_string(widget, r, pr.left, rowbuf);
+	}
+	if(pr.left) plot_draw_y_axis(widget, pr.left, h, lo, hi, data->flags);
+	if(pr.bottom){ //plot rows drawn, so rowbuf is free to reuse as the baseline scratch
+		plot_draw_x_axis(widget, rowbuf, pr.left, w, h);
+		if((data->flags & LABEL_X_AXIS) && pr.bottom>=2 && col_seconds>0){ //time labels only make sense when each column spans a known interval
+			char lspan[16];
+			plot_format_span(lround(col_seconds * w), lspan, sizeof(lspan));
+			plot_draw_x_labels(widget, pr.left, w, h, lspan, "0");
+		}
 	}
 	stage_refresh(widget);
 }
@@ -57,13 +67,14 @@ void* sparkline(void* input){
 	struct plot_data* data = widget->data;
 	int h, w;
 	get_size(widget, &h, &w);
-	SPARKLINE_ALLOC(block, samples, col_eighths, rowbuf, w);
+	struct plot_region pr = plot_layout(data->flags, h, w);
+	SPARKLINE_ALLOC(block, samples, col_eighths, rowbuf, pr.w);
 	pthread_cleanup_push(free, block); //free on thread cancel
 	plot_set_color(widget, data->color, data->bg_color);
 	if(widget->time>0){ //time==0 doesn't make sense for a sparkline
 		while(1){
-			sparkline_push(samples, w, plot_sample(data->source));
-			sparkline_draw(widget, rowbuf, col_eighths, samples, h, w, data);
+			sparkline_push(samples, pr.w, plot_sample(data->source));
+			sparkline_draw(widget, rowbuf, col_eighths, samples, pr, data, widget->time); //each column spans widget->time seconds, so the X axis can be labeled
 			sleep(widget->time);
 		}
 	}
@@ -77,18 +88,19 @@ void* sparkline_live(void* input){
 	struct plot_data* data = widget->data;
 	int h, w;
 	get_size(widget, &h, &w);
-	SPARKLINE_ALLOC(block, samples, col_eighths, rowbuf, w);
+	struct plot_region pr = plot_layout(data->flags, h, w);
+	SPARKLINE_ALLOC(block, samples, col_eighths, rowbuf, pr.w);
 	pthread_cleanup_push(free, block); //free on thread cancel
 	plot_set_color(widget, data->color, data->bg_color);
 	struct plot_live_resources res = { 0, NULL };
 	res.fp = plot_spawn(data->source, &res.pid);
 	if(res.fp){
 		pthread_cleanup_push(plot_live_cleanup, &res); //kill/reap the child on cancel
-		sparkline_draw(widget, rowbuf, col_eighths, samples, h, w, data); //empty plot until the first value arrives
+		sparkline_draw(widget, rowbuf, col_eighths, samples, pr, data, 0); //empty plot until the first value arrives; cadence is unknown so no X labels
 		char line[64];
 		while(fgets(line, sizeof(line), res.fp)!=NULL){
-			sparkline_push(samples, w, strtod(line, NULL));
-			sparkline_draw(widget, rowbuf, col_eighths, samples, h, w, data);
+			sparkline_push(samples, pr.w, strtod(line, NULL));
+			sparkline_draw(widget, rowbuf, col_eighths, samples, pr, data, 0);
 		}
 		while(1) pause(); //command exited: keep the final frame until cancelled
 		pthread_cleanup_pop(1); //unreachable, balances the push macro
@@ -97,13 +109,14 @@ void* sparkline_live(void* input){
 	return NULL;
 }
 
-//like sparkline, but source is a file path; plots the file's last w lines, redrawn whenever its mtime changes (polled every widget->time seconds)
+//like sparkline, but source is a file path; plots the file's last pr.w lines, redrawn whenever its mtime changes (polled every widget->time seconds)
 void* sparkline_file(void* input){
 	struct widget* widget = input;
 	struct plot_data* data = widget->data;
 	int h, w;
 	get_size(widget, &h, &w);
-	SPARKLINE_ALLOC(block, samples, col_eighths, rowbuf, w);
+	struct plot_region pr = plot_layout(data->flags, h, w);
+	SPARKLINE_ALLOC(block, samples, col_eighths, rowbuf, pr.w);
 	pthread_cleanup_push(free, block); //free on thread cancel
 	plot_set_color(widget, data->color, data->bg_color);
 	if(widget->time>0){
@@ -112,14 +125,14 @@ void* sparkline_file(void* input){
 		while(1){
 			if(stat(data->source, &st)==0 && st.st_mtime>last_mtime){
 				last_mtime = st.st_mtime;
-				plot_read_tail(data->source, samples, w); //refill the whole buffer from the file's tail
-				sparkline_draw(widget, rowbuf, col_eighths, samples, h, w, data);
+				plot_read_tail(data->source, samples, pr.w); //refill the whole buffer from the file's tail
+				sparkline_draw(widget, rowbuf, col_eighths, samples, pr, data, 0); //file lines aren't a fixed time interval, so no X labels
 			}
 			sleep(widget->time);
 		}
 	}else{
-		plot_read_tail(data->source, samples, w);
-		sparkline_draw(widget, rowbuf, col_eighths, samples, h, w, data);
+		plot_read_tail(data->source, samples, pr.w);
+		sparkline_draw(widget, rowbuf, col_eighths, samples, pr, data, 0);
 	}
 	pthread_cleanup_pop(1); //frees block, balances the push macro
 	return NULL;

@@ -136,12 +136,24 @@ struct plot_data{
     double min, max;    // expected value range
     uint32_t color;     // 0xRRGGBB main color; 0 = terminal default foreground
     uint32_t bg_color;  // 0xRRGGBB color of the unfilled parts; 0 = terminal default background
+    int flags;          // flags
 };
 ```
 
 Each plot comes in three flavours distinguished by how `source` is read: the plain widget reruns `source` as a command every `time` seconds; the `_live` widget launches `source` once and streams values from its output; the `_file` widget treats `source` as a **file path**, polls its modification time every `time` seconds, and redraws when it changes.
 
-Supply it with a compound literal (or a named static):
+`plot_data.flags` can request axes, drawn inside the widget's own area (so enabling one **shrinks the plot**, it doesn't enlarge the widget):
+
+| Flag           | Effect | Space taken |
+|----------------|--------|-------------|
+| `PLOT_Y_AXIS`  | Vertical axis line down the left edge | 1 column |
+| `LABEL_Y_AXIS` | Value labels left of the Y line (max on the top row, min on the bottom) | +6 columns (7 total with the line) |
+| `PLOT_X_AXIS`  | Horizontal baseline along the bottom | 1 row |
+| `LABEL_X_AXIS` | Labels under the baseline | +1 row (2 total with the line) |
+
+A `LABEL_` flag only takes effect when its matching `PLOT_` flag is also set. The number labels are formatted to fit a fixed 6-column field, dropping decimals and falling back to scientific notation as needed. If a margin wouldn't leave at least one plot cell, that axis is dropped entirely.
+
+To declare a widget, supply it with a compound literal (or a named static):
 
 ```c
 { .widget = progressbar, .time = 1,

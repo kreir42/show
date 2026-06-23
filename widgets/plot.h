@@ -16,6 +16,19 @@ struct plot_data{
 	int flags;		//plot-specific modifiers
 };
 
+//axis flags for plot_data.flags. each LABEL_ flag only takes effect when its matching PLOT_ flag is also set
+#define PLOT_X_AXIS	(1<<0)	//draw a horizontal baseline along the bottom
+#define LABEL_X_AXIS	(1<<1)	//label the X axis
+#define PLOT_Y_AXIS	(1<<2)	//draw a vertical axis line on the left
+#define LABEL_Y_AXIS	(1<<3)	//label the Y axis
+#define PLOT_YLABEL_W	6	//fixed columns reserved for Y-axis number labels (the axis line takes 1 more)
+
+//axis glyphs
+#define PLOT_VLINE	"│"
+#define PLOT_HLINE	"─"
+#define PLOT_LLCORNER	"└"
+#define PLOT_YTICK	"┤"
+
 //block-fill glyphs shared by plot types: partial cells indexed by eighths 1..7, plus the full cell
 static const char* plot_fill_horizontal[8] = { "", "▏", "▎", "▍", "▌", "▋", "▊", "▉" };
 static const char* plot_fill_vertical[8]   = { "", "▁", "▂", "▃", "▄", "▅", "▆", "▇" };
@@ -63,6 +76,70 @@ static void plot_fill_row(char* dst, const char* glyph, int n){
 	int idx = 0;
 	for(int c=0; c<n; c++){ memcpy(dst+idx, glyph, len); idx += len; }
 	dst[idx] = '\0';
+}
+
+//the plot area after the axes carve out their margins: rows [0,h), columns [left, left+w)
+struct plot_region{ int left, bottom, w, h; };
+
+//resolve the plot area for a widget of total h x w. flags should already be masked to the axes this widget supports. an axis is dropped whole if its margin wouldn't leave room
+static struct plot_region plot_layout(int flags, int h, int w){
+	int left = (flags & PLOT_Y_AXIS) ? ((flags & LABEL_Y_AXIS) ? PLOT_YLABEL_W+1 : 1) : 0;
+	int bottom = (flags & PLOT_X_AXIS) ? ((flags & LABEL_X_AXIS) ? 2 : 1) : 0;
+	if(w-left < 1) left = 0;
+	if(h-bottom < 1) bottom = 0;
+	return (struct plot_region){ left, bottom, w-left, h-bottom };
+}
+
+//format v into out using at most "width" visible characters: the most significant digits that fit, falling back to scientific notation, then a hard truncation as a last resort
+static void plot_format_value(double v, char* out, size_t cap, int width){
+	for(int prec=width; prec>=1; prec--){
+		snprintf(out, cap, "%.*g", prec, v); //%g switches to scientific on its own when the plain form is too wide
+		if((int)strlen(out) <= width) return;
+	}
+	if((int)strlen(out) > width) out[width] = '\0';
+}
+
+//format a duration as "-<n><unit>" using the largest whole unit (s/m/h/d)
+static void plot_format_span(long secs, char* out, size_t cap){
+	if(secs < 60)         snprintf(out, cap, "-%lds", secs);
+	else if(secs < 3600)  snprintf(out, cap, "-%ldm", secs/60);
+	else if(secs < 86400) snprintf(out, cap, "-%ldh", secs/3600);
+	else                  snprintf(out, cap, "-%ldd", secs/86400);
+}
+
+//draw the left Y-axis line over rows [0,plot_h). with LABEL_Y_AXIS, label hi at the top row and lo at the bottom row. the axis line sits at column left-1, labels right-aligned in the columns before it
+static void plot_draw_y_axis(struct widget* widget, int left, int plot_h, double lo, double hi, int flags){
+	int labeled = (flags & LABEL_Y_AXIS) && left > 1;
+	for(int r=0; r<plot_h; r++){
+		int tick = labeled && (r==0 || r==plot_h-1);
+		if(labeled){
+			char field[PLOT_YLABEL_W*2]; field[0] = '\0';
+			if(r==0) plot_format_value(hi, field, sizeof(field), PLOT_YLABEL_W);
+			else if(r==plot_h-1) plot_format_value(lo, field, sizeof(field), PLOT_YLABEL_W);
+			char padded[PLOT_YLABEL_W+1];
+			snprintf(padded, sizeof(padded), "%*s", PLOT_YLABEL_W, field); //right-align next to the axis
+			draw_string(widget, r, 0, padded);
+		}
+		draw_string(widget, r, left-1, tick ? PLOT_YTICK : PLOT_VLINE);
+	}
+}
+
+//draw the X-axis baseline at row plot_h spanning [left, left+plot_w), plus the corner where it meets a Y axis. scratch must hold at least plot_w*3+1 bytes
+static void plot_draw_x_axis(struct widget* widget, char* scratch, int left, int plot_w, int plot_h){
+	if(left>0) draw_string(widget, plot_h, left-1, PLOT_LLCORNER);
+	plot_fill_row(scratch, PLOT_HLINE, plot_w);
+	draw_string(widget, plot_h, left, scratch);
+}
+
+//draw a left-aligned and a right-aligned ASCII label on the X-axis label row (plot_h+1), within [left, left+plot_w). the right label is skipped if it would collide with the left one
+static void plot_draw_x_labels(struct widget* widget, int left, int plot_w, int plot_h, const char* lstr, const char* rstr){
+	int row = plot_h+1;
+	int llen = lstr ? (int)strlen(lstr) : 0;
+	if(llen) draw_string(widget, row, left, lstr);
+	if(rstr && rstr[0]){
+		int rx = left + plot_w - (int)strlen(rstr);
+		if(rx > left + llen) draw_string(widget, row, rx, rstr);
+	}
 }
 
 //sample the source command once and return its first line parsed as a number, or NAN on failure
