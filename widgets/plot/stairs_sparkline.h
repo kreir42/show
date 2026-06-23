@@ -1,7 +1,15 @@
-//sparkline: a scrolling history of the last w samples, one column per sample, drawn as vertical eighth-block bars
+//stairs_sparkline: the same rolling time-series as bar_sparkline, but drawn as a connected line of box-drawing glyphs (whole-cell vertical resolution). shares the history buffer, scaling, axes and the poll/live/file flavours; only the draw differs
 
-//render the sample history into the plot region. rowbuf is a scratch of pr.w*3+1 bytes (also reused for the baseline), and col_eighths of pr.w ints. samples holds pr.w raw values (NAN = no data). col_seconds is the time each column spans (0 disables X labels)
-static void sparkline_draw(struct widget* widget, char* rowbuf, int* col_eighths, double* samples, struct plot_region pr, struct plot_data* data, double col_seconds){
+//line segments, named by the two directions each glyph opens toward
+#define LINE_H  "─"
+#define LINE_V  "│"
+#define LINE_DR "╭"
+#define LINE_DL "╮"
+#define LINE_UR "╰"
+#define LINE_UL "╯"
+
+//render the sample history as a connected line into pr. rows is scratch of pr.w ints (each sample's screen row, -1 = no point). rowbuf is pr.w*3+1 bytes (also reused for the baseline). col_seconds is the time each column spans (0 disables X labels)
+static void stairs_sparkline_draw(struct widget* widget, char* rowbuf, int* rows, double* samples, struct plot_region pr, struct plot_data* data, double col_seconds){
 	int w = pr.w, h = pr.h;
 	double lo, hi;
 	if(data->min != data->max){ //fixed range
@@ -16,18 +24,29 @@ static void sparkline_draw(struct widget* widget, char* rowbuf, int* col_eighths
 	}
 	double span = hi - lo;
 	for(int c=0; c<w; c++){
-		if(isnan(samples[c])){ col_eighths[c] = 0; continue; } //blank column
+		if(isnan(samples[c])){ rows[c] = -1; continue; } //no point in this column (breaks the line)
 		double f = span>0 ? (samples[c]-lo)/span : 0;
 		if(f<0) f = 0; else if(f>1) f = 1; //clamp to [0,1]
-		col_eighths[c] = lround(f * h * 8);
+		rows[c] = (int)lround((1.0-f) * (h-1)); //row 0 = top (max), row h-1 = bottom (min)
 	}
 	plot_color_on(widget, data->color, data->bg_color); //the plot area carries the color; axes/labels stay terminal-default
 	for(int r=0; r<h; r++){
-		int from_bottom = h-1-r; //0 == bottom row
 		int idx = 0;
 		for(int c=0; c<w; c++){
-			int full = col_eighths[c]/8, rem = col_eighths[c]%8;
-			const char* glyph = (from_bottom < full) ? PLOT_FULL : (from_bottom==full && rem) ? plot_fill_vertical[rem] : " ";
+			int yc = rows[c];
+			const char* glyph = " ";
+			if(yc>=0){
+				int yp = (c>0) ? rows[c-1] : -1; //the segment from the previous sample is drawn in this column
+				if(yp<0 || yp==yc){ //start of a run, or flat: a horizontal stroke at the sample's row
+					if(r==yc) glyph = LINE_H;
+				}else{ //sloped: corners at both ends, a vertical run between
+					int up = yc < yp; //current sample sits higher on screen (smaller row)
+					int top = up ? yc : yp, bot = up ? yp : yc;
+					if(r==yc) glyph = up ? LINE_DR : LINE_UR;
+					else if(r==yp) glyph = up ? LINE_UL : LINE_DL;
+					else if(r>top && r<bot) glyph = LINE_V;
+				}
+			}
 			size_t len = strlen(glyph);
 			memcpy(rowbuf+idx, glyph, len);
 			idx += len;
@@ -48,34 +67,19 @@ static void sparkline_draw(struct widget* widget, char* rowbuf, int* col_eighths
 	stage_refresh(widget);
 }
 
-//helper macro to create the (samples, col_eights, rowbuf) arrays out of a single malloc
-#define SPARKLINE_ALLOC(block, samples, col_eighths, rowbuf, w) \
-	char* block = malloc((size_t)(w)*sizeof(double) + (size_t)(w)*sizeof(int) + ((size_t)(w)*3 + 1)); \
-	if(!block) return NULL; \
-	double* samples = (double*)block; \
-	int* col_eighths = (int*)(samples + (w)); \
-	char* rowbuf = (char*)(col_eighths + (w)); \
-	for(int i=0; i<(w); i++) samples[i] = NAN
-
-//push one sample onto the right of the history, dropping the oldest on the left
-static inline void sparkline_push(double* samples, int w, double v){
-	memmove(samples, samples+1, (size_t)(w-1)*sizeof(double));
-	samples[w-1] = v;
-}
-
-//a scrolling history of source values, resampled every widget->time seconds
-void* sparkline(void* input){
+//a scrolling line of source values, resampled every widget->time seconds
+void* stairs_sparkline(void* input){
 	struct widget* widget = input;
 	struct plot_data* data = widget->data;
 	int h, w;
 	get_size(widget, &h, &w);
 	struct plot_region pr = plot_layout(data->flags, h, w);
-	SPARKLINE_ALLOC(block, samples, col_eighths, rowbuf, pr.w);
+	PLOT_HISTORY_ALLOC(block, samples, rows, rowbuf, pr.w);
 	pthread_cleanup_push(free, block); //free on thread cancel
-	if(widget->time>0){ //time==0 doesn't make sense for a sparkline
+	if(widget->time>0){ //time==0 doesn't make sense for a time series
 		while(1){
-			sparkline_push(samples, pr.w, plot_sample(data->source));
-			sparkline_draw(widget, rowbuf, col_eighths, samples, pr, data, widget->time); //each column spans widget->time seconds, so the X axis can be labeled
+			plot_history_push(samples, pr.w, plot_sample(data->source));
+			stairs_sparkline_draw(widget, rowbuf, rows, samples, pr, data, widget->time); //each column spans widget->time seconds, so the X axis can be labeled
 			sleep(widget->time);
 		}
 	}
@@ -83,24 +87,24 @@ void* sparkline(void* input){
 	return NULL;
 }
 
-//like sparkline, but the source is launched once and each line it prints pushes a sample. widget->time is ignored
-void* sparkline_live(void* input){
+//like stairs_sparkline, but the source is launched once and each line it prints pushes a sample. widget->time is ignored
+void* stairs_sparkline_live(void* input){
 	struct widget* widget = input;
 	struct plot_data* data = widget->data;
 	int h, w;
 	get_size(widget, &h, &w);
 	struct plot_region pr = plot_layout(data->flags, h, w);
-	SPARKLINE_ALLOC(block, samples, col_eighths, rowbuf, pr.w);
+	PLOT_HISTORY_ALLOC(block, samples, rows, rowbuf, pr.w);
 	pthread_cleanup_push(free, block); //free on thread cancel
 	struct plot_live_resources res = { 0, NULL };
 	res.fp = plot_spawn(data->source, &res.pid);
 	if(res.fp){
 		pthread_cleanup_push(plot_live_cleanup, &res); //kill/reap the child on cancel
-		sparkline_draw(widget, rowbuf, col_eighths, samples, pr, data, 0); //empty plot until the first value arrives; cadence is unknown so no X labels
+		stairs_sparkline_draw(widget, rowbuf, rows, samples, pr, data, 0); //empty plot until the first value arrives; cadence is unknown so no X labels
 		char line[64];
 		while(fgets(line, sizeof(line), res.fp)!=NULL){
-			sparkline_push(samples, pr.w, strtod(line, NULL));
-			sparkline_draw(widget, rowbuf, col_eighths, samples, pr, data, 0);
+			plot_history_push(samples, pr.w, strtod(line, NULL));
+			stairs_sparkline_draw(widget, rowbuf, rows, samples, pr, data, 0);
 		}
 		while(1) pause(); //command exited: keep the final frame until cancelled
 		pthread_cleanup_pop(1); //unreachable, balances the push macro
@@ -109,14 +113,14 @@ void* sparkline_live(void* input){
 	return NULL;
 }
 
-//like sparkline, but source is a file path; plots the file's last pr.w lines, redrawn whenever its mtime changes (polled every widget->time seconds)
-void* sparkline_file(void* input){
+//like stairs_sparkline, but source is a file path; plots the file's last pr.w lines, redrawn whenever its mtime changes (polled every widget->time seconds)
+void* stairs_sparkline_file(void* input){
 	struct widget* widget = input;
 	struct plot_data* data = widget->data;
 	int h, w;
 	get_size(widget, &h, &w);
 	struct plot_region pr = plot_layout(data->flags, h, w);
-	SPARKLINE_ALLOC(block, samples, col_eighths, rowbuf, pr.w);
+	PLOT_HISTORY_ALLOC(block, samples, rows, rowbuf, pr.w);
 	pthread_cleanup_push(free, block); //free on thread cancel
 	if(widget->time>0){
 		time_t last_mtime = 0;
@@ -125,13 +129,13 @@ void* sparkline_file(void* input){
 			if(stat(data->source, &st)==0 && st.st_mtime>last_mtime){
 				last_mtime = st.st_mtime;
 				plot_read_tail(data->source, samples, pr.w); //refill the whole buffer from the file's tail
-				sparkline_draw(widget, rowbuf, col_eighths, samples, pr, data, 0); //file lines aren't a fixed time interval, so no X labels
+				stairs_sparkline_draw(widget, rowbuf, rows, samples, pr, data, 0); //file lines aren't a fixed time interval, so no X labels
 			}
 			sleep(widget->time);
 		}
 	}else{
 		plot_read_tail(data->source, samples, pr.w);
-		sparkline_draw(widget, rowbuf, col_eighths, samples, pr, data, 0);
+		stairs_sparkline_draw(widget, rowbuf, rows, samples, pr, data, 0);
 	}
 	pthread_cleanup_pop(1); //frees block, balances the push macro
 	return NULL;

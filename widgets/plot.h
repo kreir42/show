@@ -279,5 +279,21 @@ static void plot_live_cleanup(void* arg){
 	waitpid(r->pid, NULL, 0);
 }
 
+//per-thread scratch shared by the time-series plots (bar_sparkline, stairs_sparkline): a rolling buffer of "count" raw samples, a per-column int array, and a row string, carved from one malloc (doubles first for alignment) and freed on cancel. "count" is the column count (pr.w); samples start as NAN
+#define PLOT_HISTORY_ALLOC(block, samples, ints, rowbuf, count) \
+	char* block = malloc((size_t)(count)*sizeof(double) + (size_t)(count)*sizeof(int) + ((size_t)(count)*3 + 1)); \
+	if(!block) return NULL; \
+	double* samples = (double*)block; \
+	int* ints = (int*)(samples + (count)); \
+	char* rowbuf = (char*)(ints + (count)); \
+	for(int i=0; i<(count); i++) samples[i] = NAN
+
+//push one sample onto the right of a "count" value history, dropping the oldest on the left
+static inline void plot_history_push(double* samples, int count, double v){
+	memmove(samples, samples+1, (size_t)(count-1)*sizeof(double));
+	samples[count-1] = v;
+}
+
 #include "plot/progressbar.h"
-#include "plot/sparkline.h"
+#include "plot/bar_sparkline.h"
+#include "plot/stairs_sparkline.h"
