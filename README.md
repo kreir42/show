@@ -162,43 +162,17 @@ To declare a widget, supply it with a compound literal (or a named static):
   .h = {SZ_ABS, 1}, .w = {SZ_ABS, 40} },
 ```
 
-### `progressbar`
-A horizontal bar that fills left-to-right in proportion to where the sampled value sits between `min` and `max`. Uses eighth-block glyphs so the bar end is accurate to ⅛ of a cell. Resamples every `time` seconds (or draws once if `time <= 0`).
+Every widget below also comes in `_live` and `_file` forms (e.g. `progressbar_live`, `bar_sparkline_file`) as described under flavours above.
 
-### `progressbar_live`
-Like `progressbar`, but `source` is launched **once** and each line of numeric output it prints updates the bar live, for a long-running source (`time` is ignored). The bar starts empty until the first value arrives; if the command exits, the last frame stays on screen.
+| Widget | Renders | Notes |
+|--------|---------|-------|
+| `progressbar` | Horizontal bar filling left→right between `min` and `max`, accurate to 1/8 cell | |
+| `vertical_progressbar` | Like `progressbar`, but fills bottom→top | |
+| `bar_sparkline` | Scrolling history, one vertical eighth-block bar per sample | history length = width |
+| `stairs_sparkline` | Same history drawn as a connected box-drawing line | whole-cell resolution. `NaN` breaks the line |
+| `braille_sparkline` | Same history as a connected braille-dot line | sub-cell vertical resolution, 2 samples per column (2× history). Requires a braille-capable font. `NaN` breaks the line |
 
-### `progressbar_file`
-Like `progressbar`, but `source` is a **file path**. The bar shows the file's **last line**, redrawn whenever the file's modification time changes (polled every `time` seconds). Non-numeric and blank lines are skipped, so the value tracks the last numeric line written.
-
-### `vertical_progressbar`
-Like `progressbar`, but fills bottom-to-top.
-
-### `vertical_progressbar_live`
-Like `progressbar_live`, but fills bottom-to-top.
-
-### `vertical_progressbar_file`
-Like `progressbar_file`, but fills bottom-to-top.
-
-### `bar_sparkline`
-A scrolling history of the last samples, one column per sample drawn as a vertical eighth-block bar whose height encodes the value. The history length equals the widget's width: each new sample shifts the columns left, so the plot fills in from the right and scrolls. Resamples every `time` seconds.
-
-By default the vertical scale spans `min`..`max` like the progress bars. If `min == max` the plot **auto-scales**: each frame it rescales to the running minimum and maximum of the samples currently on screen, so the visible range always fills the height.
-
-### `bar_sparkline_live`
-Like `bar_sparkline`, but `source` is launched **once** and each line of numeric output it prints pushes a new sample (`time` is ignored). The plot starts empty and fills from the right as values arrive. If the command exits, the last frame stays on screen.
-
-### `bar_sparkline_file`
-Like `bar_sparkline`, but `source` is a **file path**. Plots the file's **last `w` lines** (one per column, oldest on the left), refilled from the file's tail and redrawn whenever its modification time changes (polled every `time` seconds). A file with fewer than `w` numeric lines is right-aligned with the leftmost columns left blank. Like `bar_sparkline`, `min == max` auto-scales the vertical range.
-
-### `stairs_sparkline`
-Same scrolling time-series as `bar_sparkline`: one column per sample, history length equal to the widget width, scrolling in from the right, fixed `min`..`max` scale or `min == max` auto-scaling, and the same axes; but drawn as a **connected line** of box-drawing glyphs instead of filled bars. The vertical resolution is one cell. Missing/`NaN` samples break the line rather than connecting across the gap.
-
-### `stairs_sparkline_live`
-Like `stairs_sparkline`, but `source` is launched **once** and each line of numeric output pushes a new sample (`time` is ignored), as in `bar_sparkline_live`.
-
-### `stairs_sparkline_file`
-Like `stairs_sparkline`, but `source` is a **file path**, plotting the file's last `w` lines and redrawing on mtime change, as in `bar_sparkline_file`.
+The **sparklines** scroll in from the right (newest sample on the right) and **auto-scale** the vertical range to the on-screen samples when `min == max`; otherwise, like the progress bars, they use the fixed `min`..`max` range.
 
 ## Keys
 
