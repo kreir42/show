@@ -170,7 +170,8 @@ Every widget below also comes in `_live` and `_file` forms (e.g. `progressbar_li
 | `vertical_progressbar` | Like `progressbar`, but fills bottom→top | |
 | `bar_sparkline` | Scrolling history, one vertical eighth-block bar per sample | history length = width |
 | `stairs_sparkline` | Same history drawn as a connected box-drawing line | whole-cell resolution. `NaN` breaks the line |
-| `braille_sparkline` | Same history as a connected braille-dot line | sub-cell vertical resolution, 2 samples per column (2× history). Requires a braille-capable font. `NaN` breaks the line |
+| `braille_line_sparkline` | Same history as a connected braille-dot line | sub-cell vertical resolution, 2 samples per column (2× history). Requires a braille-capable font. `NaN` breaks the line |
+| `braille_scatter_sparkline` | Same history as unconnected braille dots (a scatter) | sub-cell vertical resolution, 2 samples per column (2× history). Requires a braille-capable font |
 
 The **sparklines** scroll in from the right (newest sample on the right) and **auto-scale** the vertical range to the on-screen samples when `min == max`; otherwise, like the progress bars, they use the fixed `min`..`max` range.
 
