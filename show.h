@@ -112,8 +112,12 @@ static void* update_function(void* _){
 #endif
 	while(1){
 #ifdef USE_NOTCURSES
+		//prevent thread from cancelling mid-render/raster
+		int oldstate;
+		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldstate);
 		ncpile_render(stdplane);
 		ncpile_rasterize(stdplane);
+		pthread_setcancelstate(oldstate, NULL);
 #else
 		draw_lock();
 		doupdate();
