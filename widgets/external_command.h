@@ -260,6 +260,7 @@ static inline void draw_external_command(struct widget* widget, int h, int w) {
 		return;
 	}
 	if (pid == 0) {
+		reset_child_sigmask(); //don't leak our blocked SIGWINCH into the spawned command
 		execl("/bin/sh", "sh", "-c", widget->data, NULL);
 		exit(1);
 	}
@@ -329,6 +330,7 @@ void* live_external_command(void* input){
 		return NULL;
 	}
 	if (pid == 0) {
+		reset_child_sigmask(); //don't leak our blocked SIGWINCH into the spawned command
 		execl("/bin/sh", "sh", "-c", widget->data, NULL);
 		exit(1);
 	}

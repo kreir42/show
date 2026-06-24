@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <locale.h>
 #include <stdlib.h>
+#include <signal.h>
 
 #ifdef USE_NOTCURSES
 #include <notcurses/notcurses.h>
@@ -19,7 +20,6 @@ static int pixel_support = 0; //>0 once startup confirms the terminal can blit p
 #define BOX_LLCORNER "└"
 #else
 #include <ncurses.h>
-#include <signal.h>
 #endif
 
 #include <unistd.h>
@@ -159,6 +159,13 @@ static inline void draw_string(struct widget* widget, int y, int x, const char* 
 	mvwaddstr(widget->window, y, x, str);
 	draw_unlock();
 #endif
+}
+
+//in a just-forked child, restore the default empty signal mask before exec
+static inline void reset_child_sigmask(void){
+	sigset_t empty;
+	sigemptyset(&empty);
+	sigprocmask(SIG_SETMASK, &empty, NULL);
 }
 
 #include "big_font.h" //BIG_FONT_H, BIG_FONT_W and the glyph table

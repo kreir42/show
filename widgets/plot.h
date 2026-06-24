@@ -263,6 +263,7 @@ static FILE* plot_spawn(const char* source, pid_t* pid_out){
 	pid_t pid = forkpty(&master, NULL, NULL, &ws);
 	if(pid<0) return NULL;
 	if(pid==0){ //child
+		reset_child_sigmask(); //don't leak our blocked SIGWINCH into the spawned command
 		execl("/bin/sh", "sh", "-c", source, NULL);
 		_exit(1);
 	}
