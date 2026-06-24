@@ -13,7 +13,9 @@ static inline void draw_image(struct widget* widget, const char* path) {
 			.blitter = NCBLIT_DEFAULT,
 			.flags = NCVISUAL_OPTION_HORALIGNED | NCVISUAL_OPTION_VERALIGNED,
 		};
+		draw_lock();
 		ncvisual_blit(nc, visual, &vopts);
+		draw_unlock();
 		ncvisual_destroy(visual);
 		stage_refresh(widget);
 	}

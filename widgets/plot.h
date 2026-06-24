@@ -56,10 +56,12 @@ static __thread short plot_pair = 0; //this thread's cached fg/bg color pair (0 
 //turn on the plot's foreground/background color for the cells drawn next. a 0 color/bg leaves the terminal default
 static inline void plot_color_on(struct widget* widget, uint32_t color, uint32_t bg_color){
 #ifdef USE_NOTCURSES
+	draw_lock();
 	if(color==0) ncplane_set_fg_default(widget->window);
 	else ncplane_set_fg_rgb8(widget->window, (color>>16)&0xff, (color>>8)&0xff, color&0xff);
 	if(bg_color==0) ncplane_set_bg_default(widget->window);
 	else ncplane_set_bg_rgb8(widget->window, (bg_color>>16)&0xff, (bg_color>>8)&0xff, bg_color&0xff);
+	draw_unlock();
 #else
 	if(color==0 && bg_color==0) return; //both default: nothing to set
 	//each plot thread uses one constant fg/bg, so allocate a single pair once and reuse it
@@ -77,8 +79,10 @@ static inline void plot_color_on(struct widget* widget, uint32_t color, uint32_t
 static inline void plot_color_off(struct widget* widget, uint32_t color, uint32_t bg_color){
 #ifdef USE_NOTCURSES
 	(void)color; (void)bg_color;
+	draw_lock();
 	ncplane_set_fg_default(widget->window);
 	ncplane_set_bg_default(widget->window);
+	draw_unlock();
 #else
 	if(color==0 && bg_color==0) return; //color was never turned on
 	draw_lock();

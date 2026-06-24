@@ -111,18 +111,14 @@ static void* update_function(void* _){
 	struct ncplane* stdplane = notcurses_stdplane(nc);
 #endif
 	while(1){
+		draw_lock(); //serialize the render against the widget threads' drawing. draw_lock also disables cancellation, so a cancel can't tear a render in progress
 #ifdef USE_NOTCURSES
-		//prevent thread from cancelling mid-render/raster
-		int oldstate;
-		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldstate);
 		ncpile_render(stdplane);
 		ncpile_rasterize(stdplane);
-		pthread_setcancelstate(oldstate, NULL);
 #else
-		draw_lock();
 		doupdate();
-		draw_unlock();
 #endif
+		draw_unlock();
 		usleep(REFRESH_MICROSECONDS);	//TBD:change to nanosleep?
 	}
 	return NULL;

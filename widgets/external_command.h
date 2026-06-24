@@ -2,13 +2,13 @@
 static inline void draw_text_external_command(struct widget* widget, int h, int w, char* str) {
 	FILE* fp = popen(widget->data, "r");
 	if(fp == NULL) return; //popen failed
+	draw_lock();
 #ifdef USE_NOTCURSES
 	ncplane_erase(widget->window);
 #else
-	draw_lock();
 	werase(widget->window);
-	draw_unlock();
 #endif
+	draw_unlock();
 	for(unsigned short i=0; i<h; i++){
 		if(fgets(str, w, fp)==NULL) break;	//exit early if command output ends
 		//if last char is a newline, remove
@@ -80,10 +80,12 @@ static inline void render_vterm_screen(struct widget* widget, VTermScreen* vts, 
 	//if ncurses, setup cache for color pairs. per-thread and persists across calls so repeated renders reuse pairs instead of exhausting COLOR_PAIRS
 	static __thread short next_pair = 1;
 	static __thread short pair_map[256][256]; //cache for up to 256x256 combinations
-	draw_lock(); //serialize the direct ncurses drawing below to avoid concurrency issues
-	werase(widget->window);
-#else
+#endif
+	draw_lock(); //serialize the direct backend drawing below against the render loop
+#ifdef USE_NOTCURSES
 	ncplane_erase(widget->window);
+#else
+	werase(widget->window);
 #endif
 
 	VTermPos pos;
@@ -243,8 +245,8 @@ static inline void render_vterm_screen(struct widget* widget, VTermScreen* vts, 
 	clear_attrs |= A_ITALIC;
 #endif
 	wattroff(widget->window, clear_attrs);
-	draw_unlock(); //lift the draw lock
 #endif
+	draw_unlock(); //lift the draw lock
 }
 
 static inline void draw_external_command(struct widget* widget, int h, int w) {

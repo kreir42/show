@@ -121,21 +121,19 @@ WINDOW* draw_box(WINDOW* window){
 //report the widget's size as resolved by process_widgets at the last layout. defined in show.h
 static void get_size(struct widget* widget, int* h, int* w);
 
-#ifndef USE_NOTCURSES
-//ncurses is not thread-safe, so all ncurses access must be serialized through this mutex
+//both backends are unsafe under concurrent drawing and must serialize through this mutex: ncurses is not thread-safe at all, and a notcurses plane can't be mutated while its pile is being rendered. the render loop in update_function holds it across a render, and every widget that draws holds it across each drawing operation
 //cancellation is disabled while it's held so a thread can't be cancelled mid-draw while holding the lock, which would leave it locked and cause a deadlock
-//widgets that draw through draw_string/stage_refresh get this for free, widgets that call ncurses directly must wrap their drawing in draw_lock/draw_unlock
-static pthread_mutex_t curses_mutex = PTHREAD_MUTEX_INITIALIZER;
-static __thread int curses_cancelstate; //per-thread state
+//widgets that draw through draw_string/stage_refresh get this for free, widgets that call the backend directly must wrap their drawing in draw_lock/draw_unlock
+static pthread_mutex_t draw_mutex = PTHREAD_MUTEX_INITIALIZER;
+static __thread int draw_cancelstate; //per-thread saved cancel state
 static inline void draw_lock(void){
-	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &curses_cancelstate);
-	pthread_mutex_lock(&curses_mutex);
+	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &draw_cancelstate);
+	pthread_mutex_lock(&draw_mutex);
 }
 static inline void draw_unlock(void){
-	pthread_mutex_unlock(&curses_mutex);
-	pthread_setcancelstate(curses_cancelstate, NULL);
+	pthread_mutex_unlock(&draw_mutex);
+	pthread_setcancelstate(draw_cancelstate, NULL);
 }
-#endif
 
 static inline void stage_refresh(struct widget* widget){
 #ifndef USE_NOTCURSES
@@ -146,13 +144,13 @@ static inline void stage_refresh(struct widget* widget){
 }
 
 static inline void draw_string(struct widget* widget, int y, int x, const char* str){
+	draw_lock();
 #ifdef USE_NOTCURSES
 	ncplane_putstr_yx(widget->window, y, x, str);
 #else
-	draw_lock();
 	mvwaddstr(widget->window, y, x, str);
-	draw_unlock();
 #endif
+	draw_unlock();
 }
 
 //in a just-forked child, restore the default empty signal mask before exec
