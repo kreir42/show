@@ -266,8 +266,15 @@ static FILE* plot_spawn(const char* source, pid_t* pid_out){
 		execl("/bin/sh", "sh", "-c", source, NULL);
 		_exit(1);
 	}
+	FILE* fp = fdopen(master, "r");
+	if(fp==NULL){
+		close(master);
+		kill(pid, SIGKILL);
+		waitpid(pid, NULL, 0);
+		return NULL; //*pid_out left unset
+	}
 	*pid_out = pid;
-	return fdopen(master, "r");
+	return fp;
 }
 
 struct plot_live_resources{ pid_t pid; FILE* fp; };
