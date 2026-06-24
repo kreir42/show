@@ -20,6 +20,7 @@ static int pixel_support = 0; //>0 once startup confirms the terminal can blit p
 #define BOX_LLCORNER "└"
 #else
 #include <ncurses.h>
+#include <sys/ioctl.h>
 #endif
 
 #include <unistd.h>

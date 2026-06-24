@@ -154,14 +154,15 @@ static void end_display(){
 #ifdef USE_NOTCURSES
 	notcurses_drop_planes(nc);
 	ncplane_erase(notcurses_stdplane(nc));
-#else
-	endwin();
-	refresh();
-	clear();
 #endif
 }
 
 #ifndef USE_NOTCURSES
+//block SIGWINCH and drive resizes ourselves. resizeterm reallocates stdscr/curscr, so only call this with no other thread touching ncurses (on startup, or between end_display and start_display)
+static void sync_terminal_size(void){
+	struct winsize ws;
+	if(ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0 && ws.ws_col > 0) resizeterm(ws.ws_row, ws.ws_col);
+}
 static pthread_mutex_t rebuild_mutex = PTHREAD_MUTEX_INITIALIZER;
 static void unlock_rebuild_mutex(void* m){ pthread_mutex_unlock(m); }	//void* signature for pthread_cleanup_push
 #endif
@@ -173,6 +174,11 @@ static void rebuild_display(){
 	pthread_cleanup_push(unlock_rebuild_mutex, &rebuild_mutex); //release the lock even if cancelled mid-rebuild
 #endif
 	end_display();
+#ifndef USE_NOTCURSES
+	sync_terminal_size();
+	clear();
+	wnoutrefresh(stdscr);
+#endif
 	start_display();
 #ifndef USE_NOTCURSES
 	pthread_cleanup_pop(1);
@@ -267,6 +273,7 @@ int main(int argc, char** argv){
 	start_color();
 	use_default_colors();
 	curs_set(0);
+	sync_terminal_size(); //sync to the real terminal so the first layout is correct
 	//block SIGWINCH in every thread (they inherit this mask) so it gets handled in resize_thread instead
 	sigset_t winch_set;
 	sigemptyset(&winch_set);
