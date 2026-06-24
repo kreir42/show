@@ -2,6 +2,13 @@
 static inline void draw_text_external_command(struct widget* widget, int h, int w, char* str) {
 	FILE* fp = popen(widget->data, "r");
 	if(fp == NULL) return; //popen failed
+#ifdef USE_NOTCURSES
+	ncplane_erase(widget->window);
+#else
+	draw_lock();
+	werase(widget->window);
+	draw_unlock();
+#endif
 	for(unsigned short i=0; i<h; i++){
 		if(fgets(str, w, fp)==NULL) break;	//exit early if command output ends
 		//if last char is a newline, remove
@@ -74,6 +81,9 @@ static inline void render_vterm_screen(struct widget* widget, VTermScreen* vts, 
 	static __thread short next_pair = 1;
 	static __thread short pair_map[256][256]; //cache for up to 256x256 combinations
 	draw_lock(); //serialize the direct ncurses drawing below to avoid concurrency issues
+	werase(widget->window);
+#else
+	ncplane_erase(widget->window);
 #endif
 
 	VTermPos pos;
