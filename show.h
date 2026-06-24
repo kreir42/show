@@ -13,6 +13,8 @@ static pthread_t* widget_threads;
 
 #ifdef USE_NOTCURSES
 struct notcurses* nc;	//notcurses program
+#else
+static WINDOW* box_windows[sizeof(widgets) / sizeof(struct widget)]; //per-widget border window (NULL when the widget has no box)
 #endif
 
 //coordinate of a point on a reference spanning [ref_start, ref_start+ref_size)
@@ -98,7 +100,8 @@ static void process_widgets(){
 #ifdef A_ITALIC
 		if(widgets[i].flags&ITALIC) wattron(widgets[i].window, A_ITALIC);
 #endif
-		if(widgets[i].flags&DRAW_BOX) draw_box(widgets[i].window);
+		box_windows[i] = (widgets[i].flags&DRAW_BOX) ? draw_box(widgets[i].window) : NULL;
+		if(box_windows[i]) wnoutrefresh(box_windows[i]); //stage once
 #endif
 	}
 }
@@ -144,6 +147,7 @@ static void end_display(){
 #ifndef USE_NOTCURSES
 		draw_lock(); //serialize against widget threads still being cancelled that may still be drawing
 		delwin(widgets[i].window);
+		if(box_windows[i]){ delwin(box_windows[i]); box_windows[i] = NULL; }
 		draw_unlock();
 #endif
 	}
@@ -290,10 +294,6 @@ int main(int argc, char** argv){
 #endif
 
 	start_display();
-
-#ifndef USE_NOTCURSES
-	rebuild_display();
-#endif
 
 	pthread_join(input_thread, NULL);	//wait for input thread to return
 #ifndef USE_NOTCURSES

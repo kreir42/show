@@ -105,22 +105,15 @@ void draw_box(struct ncplane* plane){
 	nccell_release(box_plane, &hl); nccell_release(box_plane, &vl);
 }
 #else
-void draw_box(WINDOW* window){
+//create a border window one cell larger than "window" on every side and draw the box on its perimeter. returns the new window, or NULL if it would fall off-screen
+WINDOW* draw_box(WINDOW* window){
 	int y, x, h, w;
 	getbegyx(window, y, x);
 	getmaxyx(window, h, w);
-	y--; x--;
-	h+=2; w+=2;
-	//corners
-	mvaddch(    y,     x, ACS_ULCORNER);
-	mvaddch(    y, w-1+x, ACS_URCORNER);
-	mvaddch(h-1+y,     x, ACS_LLCORNER);
-	mvaddch(h-1+y, w-1+x, ACS_LRCORNER);
-	//sides
-	mvhline(    y,   1+x, ACS_HLINE, w-2);
-	mvhline(h-1+y,   1+x, ACS_HLINE, w-2);
-	mvvline(  1+y,     x, ACS_VLINE, h-2);
-	mvvline(  1+y, w-1+x, ACS_VLINE, h-2);
+	WINDOW* box_window = newwin(h+2, w+2, y-1, x-1); //surrounds the content window on every side
+	if(box_window == NULL) return NULL; //doesn't fit on screen
+	box(box_window, 0, 0); //ACS_VLINE/ACS_HLINE sides with the default ACS corners
+	return box_window;
 }
 #endif
 
