@@ -174,7 +174,9 @@ static void rebuild_display(){
 	pthread_cleanup_push(unlock_rebuild_mutex, &rebuild_mutex); //release the lock even if cancelled mid-rebuild
 #endif
 	end_display();
-#ifndef USE_NOTCURSES
+#ifdef USE_NOTCURSES
+	notcurses_refresh(nc, NULL, NULL);
+#else
 	sync_terminal_size();
 	clear();
 	wnoutrefresh(stdscr);
