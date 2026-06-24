@@ -11,15 +11,24 @@ void* timedate(void* input){
 
 	time_t t;
 	struct tm* tm;
-	while(1){
+	if(widget->time>0){
+		while(1){
+			t = time(NULL);
+			tm = localtime(&t);
+			strftime(str, size, widget->data, tm);
+			str[size-1] = '\0'; //on overflow, strftime returns 0 and buffer is undefined, so add NULL terminator just in case
+			draw_string(widget, 0, 0, str);
+			stage_refresh(widget);
+			sleep(widget->time);
+		}
+	}else{
 		t = time(NULL);
 		tm = localtime(&t);
 		strftime(str, size, widget->data, tm);
 		str[size-1] = '\0'; //on overflow, strftime returns 0 and buffer is undefined, so add NULL terminator just in case
 		draw_string(widget, 0, 0, str);
 		stage_refresh(widget);
-		sleep(widget->time);
 	}
-	pthread_cleanup_pop(1);	//unreachable, balances pthread_cleanup_push macro
+	pthread_cleanup_pop(1);	//frees str: reached if time<=0, or run as the cancel handler otherwise
 	return NULL;
 }
