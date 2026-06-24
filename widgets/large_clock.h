@@ -5,13 +5,21 @@ void* large_clock(void* input){
 	char str[16]; //enough for "HH:MM:SS" and similar
 	time_t t;
 	struct tm* tm;
-	while(1){
+	if(widget->time>0){
+		while(1){
+			t = time(NULL);
+			tm = localtime(&t);
+			strftime(str, sizeof(str), widget->data, tm);
+			str[sizeof(str)-1] = '\0';
+			draw_big_string(widget, str);
+			sleep(widget->time);
+		}
+	}else{
 		t = time(NULL);
 		tm = localtime(&t);
 		strftime(str, sizeof(str), widget->data, tm);
 		str[sizeof(str)-1] = '\0';
 		draw_big_string(widget, str);
-		sleep(widget->time);
 	}
 	return NULL;
 }
