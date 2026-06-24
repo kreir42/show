@@ -108,7 +108,7 @@ static inline void render_vterm_screen(struct widget* widget, VTermScreen* vts, 
 			memset(utf8, 0, sizeof(utf8));
 			int i = 0;
 			int len = 0;
-			while (cell.chars[i] != 0 && i < VTERM_MAX_CHARS_PER_CELL) {
+			while (i < VTERM_MAX_CHARS_PER_CELL && cell.chars[i] != 0) {
 				mbstate_t state; memset(&state, 0, sizeof(state)); int l = wcrtomb(utf8 + len, cell.chars[i], &state); //wide character to multi-byte
 				if (l > 0) len += l;
 				i++;
@@ -223,7 +223,7 @@ static inline void render_vterm_screen(struct widget* widget, VTermScreen* vts, 
 				utf8[len++] = ' ';
 			} else {
 				int i = 0;
-				while (cell.chars[i] != 0 && i < VTERM_MAX_CHARS_PER_CELL) {
+				while (i < VTERM_MAX_CHARS_PER_CELL && cell.chars[i] != 0) {
 					mbstate_t state;
 					memset(&state, 0, sizeof(state));
 					int l = wcrtomb(&utf8[len], cell.chars[i], &state);
