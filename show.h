@@ -190,8 +190,8 @@ static void* input_function(void* _){
 	uint32_t c;
 #else
 	int c;
-	//create a separate window so getch doesnt block the update threads
-	WINDOW* window = newwin(1,1,0,0);
+	//read keys through a 1x1 pad: wgetch does its implicit wrefresh only for non-pad windows, so a pad never touches the shared screen buffers and the input thread can't race the renderer
+	WINDOW* window = newpad(1,1);
 #endif
 	while(1){
 #ifdef USE_NOTCURSES
