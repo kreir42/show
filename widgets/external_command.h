@@ -1,6 +1,26 @@
+//substitute the size placeholders in a command template, returning a freshly malloc'd command string (caller frees), or NULL on allocation failure
+//{{w}}/{{h}}: widget size in cells. {{pw}}/{{ph}}: widget size in pixels
+static char* substitute_placeholders(const char* tmpl, int w, int h, int pw, int ph) {
+	char* out = NULL;
+	size_t outlen = 0;
+	FILE* ms = open_memstream(&out, &outlen);
+	if(!ms) return NULL;
+	for(const char* p = tmpl; *p; ){
+		if(p[0] == '{' && p[1] == '{'){
+			if(strncmp(p, "{{pw}}", 6) == 0){ fprintf(ms, "%d", pw); p += 6; continue; }
+			if(strncmp(p, "{{ph}}", 6) == 0){ fprintf(ms, "%d", ph); p += 6; continue; }
+			if(strncmp(p, "{{w}}", 5) == 0){ fprintf(ms, "%d", w); p += 5; continue; }
+			if(strncmp(p, "{{h}}", 5) == 0){ fprintf(ms, "%d", h); p += 5; continue; }
+		}
+		fputc(*p++, ms);
+	}
+	if(fclose(ms) != 0){ free(out); return NULL; }
+	return out;
+}
+
 //shows the result of a shell command
-static inline void draw_text_external_command(struct widget* widget, int h, int w, char* str) {
-	FILE* fp = popen(widget->data, "r");
+static inline void draw_text_external_command(struct widget* widget, int h, int w, char* str, const char* cmd) {
+	FILE* fp = popen(cmd, "r");
 	if(fp == NULL) return; //popen failed
 	draw_lock();
 #ifdef USE_NOTCURSES
@@ -35,14 +55,44 @@ void* text_external_command(void* input){
 	if(!str) return NULL; //check for failed malloc
 	int t = widget->time;
 	if (t <= 0) {
-		draw_text_external_command(widget, h, w, str);
+		draw_text_external_command(widget, h, w, str, widget->data);
 		free(str);
 	} else {
 		pthread_cleanup_push(free, str); //free str on thread cancel
 		while(1){
-			draw_text_external_command(widget, h, w, str);
+			draw_text_external_command(widget, h, w, str, widget->data);
 			sleep(t);
 		}
+		pthread_cleanup_pop(1);	//unreachable, balances pthread_cleanup_push macro
+	}
+	return NULL;
+}
+
+//like text_external_command, but the command is a template whose size placeholders are substituted with this widget's size before each run
+void* dynamic_text_external_command(void* input){
+	struct widget* widget = input;
+	int h, w;
+	get_size(widget, &h, &w);
+	int ph, pw;
+	get_pixel_size(widget, &ph, &pw);
+	char* cmd = substitute_placeholders(widget->data, w, h, pw, ph);
+	if(!cmd) return NULL;
+	w++;	//+1 for the NULL terminator
+	char* str = malloc(w*sizeof(char));
+	if(!str){ free(cmd); return NULL; } //check for failed malloc
+	int t = widget->time;
+	if (t <= 0) {
+		draw_text_external_command(widget, h, w, str, cmd);
+		free(str);
+		free(cmd);
+	} else {
+		pthread_cleanup_push(free, cmd); //free cmd on thread cancel
+		pthread_cleanup_push(free, str); //free str on thread cancel
+		while(1){
+			draw_text_external_command(widget, h, w, str, cmd);
+			sleep(t);
+		}
+		pthread_cleanup_pop(1);	//unreachable, balances pthread_cleanup_push macro
 		pthread_cleanup_pop(1);	//unreachable, balances pthread_cleanup_push macro
 	}
 	return NULL;
@@ -249,7 +299,7 @@ static inline void render_vterm_screen(struct widget* widget, VTermScreen* vts, 
 	draw_unlock(); //lift the draw lock
 }
 
-static inline void draw_external_command(struct widget* widget, int h, int w) {
+static inline void draw_external_command(struct widget* widget, int h, int w, const char* cmd) {
 	int master;
 	//setup the pseudo-terminal
 	struct winsize ws;
@@ -263,7 +313,7 @@ static inline void draw_external_command(struct widget* widget, int h, int w) {
 	}
 	if (pid == 0) {
 		reset_child_sigmask(); //don't leak our blocked SIGWINCH into the spawned command
-		execl("/bin/sh", "sh", "-c", widget->data, NULL);
+		execl("/bin/sh", "sh", "-c", cmd, NULL);
 		exit(1);
 	}
 	//setup virtual terminal
@@ -304,21 +354,42 @@ void* external_command(void* input){
 	get_size(widget, &h, &w);
 	int t = widget->time;
 	if (t <= 0) {
-		draw_external_command(widget, h, w);
+		draw_external_command(widget, h, w, widget->data);
 	} else {
 		while(1) {
-			draw_external_command(widget, h, w);
+			draw_external_command(widget, h, w, widget->data);
 			sleep(t);
 		}
 	}
 	return NULL;
 }
 
-//like external_command, but the command is launched once and its live output is streamed into the display as it arrives. widget->time is ignored
-void* live_external_command(void* input){
+//like external_command, but the command is a template whose size placeholders are substituted with this widget's size before each run
+void* dynamic_external_command(void* input){
 	struct widget* widget = input;
 	int h, w;
 	get_size(widget, &h, &w);
+	int ph, pw;
+	get_pixel_size(widget, &ph, &pw);
+	char* cmd = substitute_placeholders(widget->data, w, h, pw, ph);
+	if(!cmd) return NULL;
+	int t = widget->time;
+	if (t <= 0) {
+		draw_external_command(widget, h, w, cmd);
+		free(cmd);
+	} else {
+		pthread_cleanup_push(free, cmd); //free cmd on thread cancel
+		while(1) {
+			draw_external_command(widget, h, w, cmd);
+			sleep(t);
+		}
+		pthread_cleanup_pop(1);	//unreachable, balances pthread_cleanup_push macro
+	}
+	return NULL;
+}
+
+//shared body for the "live" variants: launch cmd once and stream its live output into the display as it arrives. never returns, the thread is torn down via pthread_cancel
+static void run_live_external_command(struct widget* widget, int h, int w, const char* cmd){
 	const int drain_cap = 64*1024; //max bytes drained per frame so a flooding command can't starve rendering
 	int master;
 	//setup the pseudo-terminal
@@ -328,12 +399,10 @@ void* live_external_command(void* input){
 	ws.ws_xpixel = 0;
 	ws.ws_ypixel = 0;
 	pid_t pid = forkpty(&master, NULL, NULL, &ws);
-	if (pid == -1) {
-		return NULL;
-	}
+	if (pid == -1) return;
 	if (pid == 0) {
 		reset_child_sigmask(); //don't leak our blocked SIGWINCH into the spawned command
-		execl("/bin/sh", "sh", "-c", widget->data, NULL);
+		execl("/bin/sh", "sh", "-c", cmd, NULL);
 		exit(1);
 	}
 	//drain the master non-blocking, so a single burst can be read fully before rendering
@@ -348,7 +417,6 @@ void* live_external_command(void* input){
 	vterm_screen_reset(vts, 1);
 	struct external_command_resources res = { master, pid, vt };
 	pthread_cleanup_push(ec_cleanup, &res); //release resources on cancel (resize/quit) or normal exit (pop)
-
 	char buf[1024];
 	struct pollfd pfd;
 	pfd.fd = master;
@@ -382,6 +450,29 @@ void* live_external_command(void* input){
 		}
 	}
 	while (1) pause(); //child has exited: keep the final frame on screen and the thread idle until cancelled
+	pthread_cleanup_pop(1);	//unreachable, balances pthread_cleanup_push macro
+}
+
+//like external_command, but the command is launched once and its live output is streamed into the display as it arrives. widget->time is ignored
+void* live_external_command(void* input){
+	struct widget* widget = input;
+	int h, w;
+	get_size(widget, &h, &w);
+	run_live_external_command(widget, h, w, widget->data);
+	return NULL;
+}
+
+//like live_external_command, but the command is a template whose size placeholders are substituted with this widget's size before the single launch
+void* dynamic_live_external_command(void* input){
+	struct widget* widget = input;
+	int h, w;
+	get_size(widget, &h, &w);
+	int ph, pw;
+	get_pixel_size(widget, &ph, &pw);
+	char* cmd = substitute_placeholders(widget->data, w, h, pw, ph);
+	if(!cmd) return NULL;
+	pthread_cleanup_push(free, cmd); //free cmd on thread cancel (run_live_external_command never returns)
+	run_live_external_command(widget, h, w, cmd);
 	pthread_cleanup_pop(1);	//unreachable, balances pthread_cleanup_push macro
 	return NULL;
 }

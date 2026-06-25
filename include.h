@@ -135,6 +135,31 @@ static inline void draw_unlock(void){
 	pthread_setcancelstate(draw_cancelstate, NULL);
 }
 
+//report the widget's size in pixels: cells times the terminal's per-cell pixel dimensions. used for the {{pw}}/{{ph}} placeholders of the dynamic_external_command widgets
+static void get_pixel_size(struct widget* widget, int* ph, int* pw){
+	int h, w;
+	get_size(widget, &h, &w);
+#ifdef USE_NOTCURSES
+	unsigned pxy, pxx, celldimy, celldimx, maxbmapy, maxbmapx;
+	draw_lock(); //serialize the notcurses read against the render loop
+	ncplane_pixel_geom(widget->window, &pxy, &pxx, &celldimy, &celldimx, &maxbmapy, &maxbmapx);
+	draw_unlock();
+	*ph = h * (int)celldimy;
+	*pw = w * (int)celldimx;
+#else
+	int cellh = 0, cellw = 0;
+	struct winsize ws;
+	if(ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0 && ws.ws_col > 0){
+		cellh = ws.ws_ypixel / ws.ws_row;
+		cellw = ws.ws_xpixel / ws.ws_col;
+	}
+	if(cellh <= 0) cellh = 16; //fallback when the terminal doesn't report pixel geometry over TIOCGWINSZ
+	if(cellw <= 0) cellw = 8;
+	*ph = h * cellh;
+	*pw = w * cellw;
+#endif
+}
+
 static inline void stage_refresh(struct widget* widget){
 #ifndef USE_NOTCURSES
 	draw_lock();

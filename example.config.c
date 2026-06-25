@@ -75,6 +75,14 @@ static struct widget widgets[] = {
                 .h = {SZ_ABS, 8}, .w = {SZ_ABS, 40},
                 .x = {.offset = 1}, .y = {.ref = WIDGET(9), .ref_point = END, .offset = 1},
         },
+	{
+		.widget = dynamic_text_external_command, .time = 5,
+		.data = "gnuplot -e \"set term dumb size {{w}},{{h}}; set key off; plot [-10:10] sin(x)\"",
+		.h = {SZ_ABS, 13}, .w = {SZ_ABS, 45},
+		.y = {.self_point = START, .ref_point = START, .offset = 2},
+		.x = {.self_point = END, .ref_point = END, .offset = -1},
+		.flags = DRAW_BOX | BLEND_BACKGROUND,
+	},
 };
 
 #include "show.h"

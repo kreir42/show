@@ -111,6 +111,22 @@ Like `external_command`, but launches the command **once** and streams its live 
 ### `text_external_command`
 Runs a shell command and captures plain text output line by line. Lighter than `external_command`, no PTY or color support.
 
+### `dynamic_external_command`, `dynamic_live_external_command`, `dynamic_text_external_command`
+Variants of the three commands above that treat `data` as a **template**: size placeholders are substituted with this widget's size before the command runs, so a command can render itself to exactly the widget's dimensions. The placeholders are:
+
+| Placeholder | Meaning |
+| --- | --- |
+| `{{w}}` / `{{h}}` | widget width / height in **cells** |
+| `{{pw}}` / `{{ph}}` | widget width / height in **pixels** |
+
+The size is fixed for the widget's lifetime (a resize tears down and rebuilds every widget).
+
+Example: a self-sizing plot via gnuplot's text terminal:
+```c
+.widget = dynamic_text_external_command, .time = 2,
+.data = "gnuplot -e \"set term dumb size {{w}},{{h}}; plot sin(x)\"",
+```
+
 ### `print_string`
 Renders a static string.
 
