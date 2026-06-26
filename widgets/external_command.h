@@ -476,3 +476,108 @@ void* dynamic_live_external_command(void* input){
 	pthread_cleanup_pop(1);	//unreachable, balances pthread_cleanup_push macro
 	return NULL;
 }
+
+#ifdef USE_NOTCURSES
+#include <sys/mman.h> //memfd_create
+
+//resources for the image-from-command path
+struct image_external_command_resources{
+	FILE* fp;
+	int memfd;
+	struct ncvisual* visual;
+};
+static void image_ec_cleanup(void* arg){
+	struct image_external_command_resources* r = arg;
+	if(r->fp) pclose(r->fp);
+	if(r->visual) ncvisual_destroy(r->visual);
+	if(r->memfd >= 0) close(r->memfd);
+}
+
+//run cmd, capture the encoded image it writes to stdout into an anonymous in-memory fd using memfd, then decode and blit via notcurses
+static inline void draw_image_external_command(struct widget* widget, const char* cmd){
+	struct image_external_command_resources res = { NULL, -1, NULL };
+	res.fp = popen(cmd, "r");
+	if(res.fp == NULL) return; //popen failed
+	res.memfd = memfd_create("show_image_external_command", 0);
+	if(res.memfd < 0){ pclose(res.fp); return; }
+	pthread_cleanup_push(image_ec_cleanup, &res); //release fp/memfd/visual on cancel or at the pop below
+	//copy the command's stdout into the memfd
+	char buf[4096];
+	size_t n;
+	int copy_ok = 1;
+	while((n = fread(buf, 1, sizeof(buf), res.fp)) > 0){
+		char* p = buf;
+		size_t remaining = n;
+		while(remaining > 0){
+			ssize_t written = write(res.memfd, p, remaining);
+			if(written < 0){ if(errno == EINTR) continue; copy_ok = 0; break; }
+			remaining -= (size_t)written;
+			p += written;
+		}
+		if(!copy_ok) break;
+	}
+	if(ferror(res.fp)) copy_ok = 0;
+	pclose(res.fp);
+	res.fp = NULL; //pclose done, keep image_ec_cleanup from double-closing
+	if(copy_ok){
+		char path[64];
+		snprintf(path, sizeof(path), "/proc/self/fd/%d", res.memfd); //notcurses decodes straight from the in-memory fd
+		res.visual = ncvisual_from_file(path);
+		if(res.visual){
+			struct ncvisual_options vopts = {
+				.n = widget->window,
+				.scaling = NCSCALE_SCALE,
+				.y = NCALIGN_CENTER,
+				.x = NCALIGN_CENTER,
+				.blitter = pixel_support>0 ? NCBLIT_PIXEL : NCBLIT_DEFAULT, //real pixel graphics (sixel/kitty) where available, else the best cell blitter
+				.flags = NCVISUAL_OPTION_HORALIGNED | NCVISUAL_OPTION_VERALIGNED,
+			};
+			draw_lock();
+			ncplane_erase(widget->window);
+			ncvisual_blit(nc, res.visual, &vopts);
+			draw_unlock();
+			stage_refresh(widget);
+		}
+	}
+	pthread_cleanup_pop(1); //destroys visual, closes memfd (fp already closed)
+}
+
+//like external_command, but the command writes an encoded image to stdout instead of text; it is captured in memory and blitted as an image. reruns every time seconds
+void* image_external_command(void* input){
+	struct widget* widget = input;
+	int t = widget->time;
+	if(t <= 0){
+		draw_image_external_command(widget, widget->data);
+	} else {
+		while(1){
+			draw_image_external_command(widget, widget->data);
+			sleep(t);
+		}
+	}
+	return NULL;
+}
+
+//like image_external_command, but the command is a template whose size placeholders are substituted with this widget's size before each run
+void* dynamic_image_external_command(void* input){
+	struct widget* widget = input;
+	int h, w;
+	get_size(widget, &h, &w);
+	int ph, pw;
+	get_pixel_size(widget, &ph, &pw);
+	char* cmd = substitute_placeholders(widget->data, w, h, pw, ph);
+	if(!cmd) return NULL;
+	int t = widget->time;
+	if(t <= 0){
+		draw_image_external_command(widget, cmd);
+		free(cmd);
+	} else {
+		pthread_cleanup_push(free, cmd); //free cmd on thread cancel
+		while(1){
+			draw_image_external_command(widget, cmd);
+			sleep(t);
+		}
+		pthread_cleanup_pop(1);	//unreachable, balances pthread_cleanup_push macro
+	}
+	return NULL;
+}
+#endif

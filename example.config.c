@@ -7,7 +7,7 @@
 
 static struct widget widgets[] = {
 	{
-		.widget = image, .data = "example_background.png", .time = 1000,
+		.widget = image_cells, .data = "example_background.png", .time = 1000,
 		.h = {SZ_REL, 1}, .w = {SZ_REL, 1}, //fills the screen
 		.y = {.self_point = CENTER, .ref_point = CENTER},
 		.x = {.self_point = CENTER, .ref_point = CENTER},
@@ -76,12 +76,12 @@ static struct widget widgets[] = {
                 .x = {.offset = 1}, .y = {.ref = WIDGET(9), .ref_point = END, .offset = 1},
         },
 	{
-		.widget = dynamic_text_external_command, .time = 5,
-		.data = "gnuplot -e \"set term dumb size {{w}},{{h}}; set key off; plot [-10:10] sin(x)\"",
+		.widget = dynamic_image_external_command, .time = 5,
+		.data = "gnuplot -e \"set term pngcairo size {{pw}},{{ph}}; set key off; plot [-10:10] sin(x)\"",
 		.h = {SZ_ABS, 13}, .w = {SZ_ABS, 45},
 		.y = {.self_point = START, .ref_point = START, .offset = 2},
 		.x = {.self_point = END, .ref_point = END, .offset = -1},
-		.flags = DRAW_BOX | BLEND_BACKGROUND,
+		.flags = DRAW_BOX,
 	},
 };
 

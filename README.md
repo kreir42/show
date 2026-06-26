@@ -111,7 +111,10 @@ Like `external_command`, but launches the command **once** and streams its live 
 ### `text_external_command`
 Runs a shell command and captures plain text output line by line. Lighter than `external_command`, no PTY or color support.
 
-### `dynamic_external_command`, `dynamic_live_external_command`, `dynamic_text_external_command`
+### `image_external_command` *(notcurses only)*
+Runs a shell command that writes an **encoded image** (PNG, JPEG, etc.) to stdout, captures it entirely in memory, then decodes and blits it scaled to the widget area. Reruns every `time` seconds.
+
+### `dynamic_external_command`, `dynamic_live_external_command`, `dynamic_text_external_command`, `dynamic_image_external_command`
 Variants of the three commands above that treat `data` as a **template**: size placeholders are substituted with this widget's size before the command runs, so a command can render itself to exactly the widget's dimensions. The placeholders are:
 
 | Placeholder | Meaning |
@@ -127,6 +130,12 @@ Example: a self-sizing plot via gnuplot's text terminal:
 .data = "gnuplot -e \"set term dumb size {{w}},{{h}}; plot sin(x)\"",
 ```
 
+Or the same plot rendered as a real graphical image (notcurses), sized in pixels:
+```c
+.widget = dynamic_image_external_command, .time = 5,
+.data = "gnuplot -e \"set term pngcairo size {{pw}},{{ph}}; set key off; plot [-10:10] sin(x)\"",
+```
+
 ### `print_string`
 Renders a static string.
 
@@ -140,7 +149,10 @@ Displays the current date and time using a `strftime` format string. Updates eve
 Displays the time in large block digits scaled to fill the widget area. Takes a `strftime` format string in the argument that should resolve to only digits and `:` (e.g. `%H:%M` or `%H:%M:%S`). Updates every `time` seconds.
 
 ### `image` *(notcurses only)*
-Displays an image file, scaled to the widget area. Checks every `time` seconds and re-renders if the file's modification time increases.
+Displays an image file, scaled to the widget area. Checks every `time` seconds and re-renders if the file's modification time increases. Prefers real **pixel graphics** (sixel/kitty) where the terminal supports it, falling back to the best cell blitter otherwise.
+
+### `image_cells` *(notcurses only)*
+Like `image`, but always renders through the default **cell** blitter (colored blocks/quadrants/sextants), never pixel graphics. Useful for a background image (a full-screen sprixel composes poorly under other widgets).
 
 ## Plot widgets
 

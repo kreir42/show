@@ -286,7 +286,9 @@ void* pixel_steps_sparkline_file(void* input){
 //true if f is one of the pixel widget functions. used at startup to decide whether to probe the terminal for pixel support
 static int is_pixel_widget(void* (*f)(void*)){
 	return f==pixel_line_sparkline  || f==pixel_line_sparkline_live  || f==pixel_line_sparkline_file
-	    || f==pixel_steps_sparkline || f==pixel_steps_sparkline_live || f==pixel_steps_sparkline_file;
+	    || f==pixel_steps_sparkline || f==pixel_steps_sparkline_live || f==pixel_steps_sparkline_file
+	    || f==image_external_command || f==dynamic_image_external_command
+	    || f==image; //these prefer NCBLIT_PIXEL when probing says it's available (image_cells always uses the cell blitter, so it isn't listed)
 }
 
 #endif

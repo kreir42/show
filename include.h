@@ -1,3 +1,5 @@
+#define _GNU_SOURCE //needed for memfd_create
+
 #define CURRENT_VERSION "0.1"
 
 #include <stdio.h>
