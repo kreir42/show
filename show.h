@@ -124,14 +124,26 @@ static void* update_function(void* _){
 	return NULL;
 }
 
-static void start_display(){
+//returns 0 on success, -1 if a thread could not be created
+static int start_display(){
 	process_widgets();
 	//create a pthread per widget
 	for(unsigned short i=0; i<widgets_n; i++){
-		pthread_create(&widget_threads[i], NULL, widgets[i].widget, &widgets[i]);
+		if(pthread_create(&widget_threads[i], NULL, widgets[i].widget, &widgets[i]) != 0){
+			//cancel and join all others
+			for(unsigned short j=0; j<i; j++) pthread_cancel(widget_threads[j]);
+			for(unsigned short j=0; j<i; j++) pthread_join(widget_threads[j], NULL);
+			return -1;
+		}
 	}
 	//create a pthread to update the screen
-	pthread_create(&update_thread, NULL, update_function, NULL);
+	if(pthread_create(&update_thread, NULL, update_function, NULL) != 0){
+		//cancel and join all others
+		for(unsigned short j=0; j<widgets_n; j++) pthread_cancel(widget_threads[j]);
+		for(unsigned short j=0; j<widgets_n; j++) pthread_join(widget_threads[j], NULL);
+		return -1;
+	}
+	return 0;
 }
 
 static void end_display(){
@@ -295,14 +307,42 @@ int main(int argc, char** argv){
 		return 1;
 	}
 	//create pthread for input
-	pthread_create(&input_thread, NULL, input_function, NULL);
+	if(pthread_create(&input_thread, NULL, input_function, NULL) != 0){
+		free(widget_threads);
+#ifdef USE_NOTCURSES
+		notcurses_stop(nc);
+#else
+		endwin();
+#endif
+		return 1;
+	}
 #ifndef USE_NOTCURSES
 	//create pthread to handle terminal resizes (SIGWINCH signal)
 	pthread_t resize_thread;
-	pthread_create(&resize_thread, NULL, resize_function, NULL);
+	if(pthread_create(&resize_thread, NULL, resize_function, NULL) != 0){
+		pthread_cancel(input_thread);
+		pthread_join(input_thread, NULL);
+		free(widget_threads);
+		endwin();
+		return 1;
+	}
 #endif
 
-	start_display();
+	if(start_display() != 0){
+		pthread_cancel(input_thread);
+		pthread_join(input_thread, NULL);
+#ifndef USE_NOTCURSES
+		pthread_cancel(resize_thread);
+		pthread_join(resize_thread, NULL);
+#endif
+		free(widget_threads);
+#ifdef USE_NOTCURSES
+		notcurses_stop(nc);
+#else
+		endwin();
+#endif
+		return 1;
+	}
 
 	pthread_join(input_thread, NULL);	//wait for input thread to return
 #ifndef USE_NOTCURSES
