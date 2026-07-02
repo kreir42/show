@@ -134,7 +134,7 @@ static void plot_draw_y_axis(struct widget* widget, int left, int plot_h, double
 	for(int r=0; r<plot_h; r++){
 		int tick = labeled && (r==0 || r==plot_h-1);
 		if(labeled){
-			char field[PLOT_YLABEL_W*2]; field[0] = '\0';
+			char field[32]; field[0] = '\0'; //sized for worst-case output
 			if(r==0) plot_format_value(hi, field, sizeof(field), PLOT_YLABEL_W);
 			else if(r==plot_h-1) plot_format_value(lo, field, sizeof(field), PLOT_YLABEL_W);
 			char padded[PLOT_YLABEL_W+1];

@@ -107,6 +107,7 @@ static void process_widgets(){
 }
 
 static void* update_function(void* _){
+	(void)_; //takes no argument, signature demanded by pthread
 #ifdef USE_NOTCURSES
 	struct ncplane* stdplane = notcurses_stdplane(nc);
 #endif
@@ -200,6 +201,7 @@ static void rebuild_display(){
 }
 
 static void* input_function(void* _){
+	(void)_; //takes no argument, signature demanded by pthread
 #ifdef USE_NOTCURSES
 	uint32_t c;
 #else
@@ -235,6 +237,7 @@ static void* input_function(void* _){
 #ifndef USE_NOTCURSES
 //dedicated rebuild thread for SIGWINCH via sigwait
 static void* resize_function(void* _){
+	(void)_; //takes no argument, signature demanded by pthread
 	sigset_t set;
 	sigemptyset(&set);
 	sigaddset(&set, SIGWINCH);

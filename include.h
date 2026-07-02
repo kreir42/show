@@ -163,7 +163,9 @@ static void get_pixel_size(struct widget* widget, int* ph, int* pw){
 }
 
 static inline void stage_refresh(struct widget* widget){
-#ifndef USE_NOTCURSES
+#ifdef USE_NOTCURSES
+	(void)widget; //suppress warning, nothing to stage: the render loop picks up plane changes on its own
+#else
 	draw_lock();
 	wnoutrefresh(widget->window);
 	draw_unlock();

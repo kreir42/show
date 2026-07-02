@@ -22,7 +22,7 @@ static void progressbar_draw(struct widget* widget, char* buf, double f, struct 
 		plot_draw_x_axis(widget, buf, pr.left, pr.w, pr.h);
 		if((data->flags & LABEL_X_AXIS) && pr.bottom>=2){
 			//manually add labels
-			char lo[PLOT_YLABEL_W*2], hi[PLOT_YLABEL_W*2];
+			char lo[32], hi[32]; //sized for worst-case output
 			plot_format_value(data->min, lo, sizeof(lo), PLOT_YLABEL_W);
 			plot_format_value(data->max, hi, sizeof(hi), PLOT_YLABEL_W);
 			plot_draw_x_labels(widget, pr.left, pr.w, pr.h, lo, hi);

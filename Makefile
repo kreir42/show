@@ -1,6 +1,7 @@
 CC := gcc
 LIB := -lpthread -lvterm -lm
-CFLAGS := 
+CFLAGS := -Wall -Wextra -O2 -Wno-clobbered
+#-Wno-clobbered: suppress spurious "might be clobbered by longjmp" warnings inside pthread_cleanup_push macros
 #Put all names of .config files into TARGETS variable after removing the .config
 TARGETS := $(patsubst %.config.c,%,$(wildcard *.config.c))
 

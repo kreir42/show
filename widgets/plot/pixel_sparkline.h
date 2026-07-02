@@ -103,7 +103,7 @@ static void pixel_sparkline_draw(struct widget* widget, struct ncplane** sprite,
 	if(pr.bottom){
 		plot_draw_x_axis(widget, rowbuf, pr.left, w, h);
 		if((data->flags & LABEL_X_AXIS) && pr.bottom>=2 && col_seconds>0){
-			char lspan[16];
+			char lspan[32];
 			plot_format_span(lround(col_seconds * n), lspan, sizeof(lspan));
 			plot_draw_x_labels(widget, pr.left, w, h, lspan, "0");
 		}

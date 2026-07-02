@@ -73,7 +73,7 @@ static void braille_sparkline_draw(struct widget* widget, char* rowbuf, unsigned
 	if(pr.bottom){ //plot rows drawn, so rowbuf is free to reuse as the baseline scratch
 		plot_draw_x_axis(widget, rowbuf, pr.left, w, h);
 		if((data->flags & LABEL_X_AXIS) && pr.bottom>=2 && col_seconds>0){ //time labels only make sense when each sample spans a known interval
-			char lspan[16];
+			char lspan[32];
 			plot_format_span(lround(col_seconds * n), lspan, sizeof(lspan)); //n samples across the width
 			plot_draw_x_labels(widget, pr.left, w, h, lspan, "0");
 		}
