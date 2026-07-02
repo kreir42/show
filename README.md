@@ -1,4 +1,3 @@
-
 # show
 
 Simple, suckless-inspired, configurable terminal dashboard.

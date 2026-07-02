@@ -119,7 +119,7 @@ static void* update_function(void* _){
 		doupdate();
 #endif
 		draw_unlock();
-		usleep(REFRESH_MICROSECONDS);	//TBD:change to nanosleep?
+		usleep(REFRESH_MICROSECONDS);
 	}
 	return NULL;
 }
