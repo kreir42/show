@@ -35,22 +35,12 @@ static const char* plot_fill_vertical[8]   = { "", "▁", "▂", "▃", "▄", "
 #define PLOT_FULL "█"
 
 #ifndef USE_NOTCURSES
-//hand out distinct color-pair numbers across plot threads
-static short plot_next_pair(void){
-	static short next = 1;
-	if(next >= COLOR_PAIRS) return COLOR_PAIRS-1; //out of pairs: reuse the last one
-	return next++;
-}
 //approximate a 0xRRGGBB color onto the xterm-256 palette, or -1 (terminal default) when color==0
 static short plot_color_index(uint32_t color){
 	if(color==0) return -1;
 	int r = (color>>16)&0xff, g = (color>>8)&0xff, b = color&0xff;
 	return 16 + ((r*5+127)/255)*36 + ((g*5+127)/255)*6 + ((b*5+127)/255);
 }
-#endif
-
-#ifndef USE_NOTCURSES
-static __thread short plot_pair = 0; //this thread's cached fg/bg color pair (0 = not yet allocated)
 #endif
 
 //turn on the plot's foreground/background color for the cells drawn next. a 0 color/bg leaves the terminal default
@@ -64,13 +54,9 @@ static inline void plot_color_on(struct widget* widget, uint32_t color, uint32_t
 	draw_unlock();
 #else
 	if(color==0 && bg_color==0) return; //both default: nothing to set
-	//each plot thread uses one constant fg/bg, so allocate a single pair once and reuse it
-	draw_lock(); //init_pair/wattron touch global+window ncurses state
-	if(plot_pair==0){
-		plot_pair = plot_next_pair();
-		init_pair(plot_pair, plot_color_index(color), plot_color_index(bg_color));
-	}
-	wattron(widget->window, COLOR_PAIR(plot_pair));
+	draw_lock();
+	short pair = get_color_pair(plot_color_index(color), plot_color_index(bg_color));
+	if(pair!=0) wattron(widget->window, COLOR_PAIR(pair));
 	draw_unlock();
 #endif
 }
@@ -86,7 +72,8 @@ static inline void plot_color_off(struct widget* widget, uint32_t color, uint32_
 #else
 	if(color==0 && bg_color==0) return; //color was never turned on
 	draw_lock();
-	if(plot_pair!=0) wattroff(widget->window, COLOR_PAIR(plot_pair)); //clears just the color bits, leaving any bold/italic
+	short pair = get_color_pair(plot_color_index(color), plot_color_index(bg_color));
+	if(pair!=0) wattroff(widget->window, COLOR_PAIR(pair)); //clears just the color bits, leaving any bold/italic
 	draw_unlock();
 #endif
 }

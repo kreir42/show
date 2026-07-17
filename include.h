@@ -137,6 +137,20 @@ static inline void draw_unlock(void){
 	pthread_setcancelstate(draw_cancelstate, NULL);
 }
 
+#ifndef USE_NOTCURSES
+//return the ncurses color pair for an fg/bg combination (-1 = terminal default), allocating and initializing it on first use. returns 0 when out of pairs. call only while holding draw_lock
+static short get_color_pair(short fg, short bg){
+	static short next = 1;
+	static short pair_map[257][257]; //[fg+1][bg+1] -> pair number, 0 = not yet allocated
+	short* cached = &pair_map[fg+1][bg+1];
+	if(*cached == 0 && next < COLOR_PAIRS){
+		init_pair(next, fg, bg);
+		*cached = next++;
+	}
+	return *cached;
+}
+#endif
+
 //report the widget's size in pixels: cells times the terminal's per-cell pixel dimensions. used for the {{pw}}/{{ph}} placeholders of the dynamic_external_command widgets
 static void get_pixel_size(struct widget* widget, int* ph, int* pw){
 	int h, w;

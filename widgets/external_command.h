@@ -126,11 +126,6 @@ static void ec_cleanup(void* arg) {
 
 //render the current vterm screen contents to the widget's window
 static inline void render_vterm_screen(struct widget* widget, VTermScreen* vts, int h, int w) {
-#ifndef USE_NOTCURSES
-	//if ncurses, setup cache for color pairs. per-thread and persists across calls so repeated renders reuse pairs instead of exhausting COLOR_PAIRS
-	static __thread short next_pair = 1;
-	static __thread short pair_map[256][256]; //cache for up to 256x256 combinations
-#endif
 	draw_lock(); //serialize the direct backend drawing below against the render loop
 #ifdef USE_NOTCURSES
 	ncplane_erase(widget->window);
@@ -250,18 +245,7 @@ static inline void render_vterm_screen(struct widget* widget, VTermScreen* vts, 
 				          ((cell.bg.rgb.green * 5 + 127) / 255) * 6 +
 				          ((cell.bg.rgb.blue * 5 + 127) / 255);
 			}
-			//dynamically allocate and cache ncurses color pairs
-			//map -1 (default) to index 255 for the array bounds
-			int fg_idx = (fg == -1) ? 255 : (fg % 256);
-			int bg_idx = (bg == -1) ? 255 : (bg % 256);
-			short pair = pair_map[fg_idx][bg_idx];
-			//allocate new pair if we haven't seen this combo and haven't hit the terminal's pair limit
-			if (pair == 0 && next_pair < COLOR_PAIRS) {
-				init_pair(next_pair, fg, bg);
-				pair_map[fg_idx][bg_idx] = next_pair;
-				pair = next_pair;
-				next_pair++;
-			}
+			short pair = get_color_pair(fg, bg);
 			if (pair > 0) {
 				on_attrs |= COLOR_PAIR(pair);
 			} else {
