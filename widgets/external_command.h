@@ -22,27 +22,29 @@ static char* substitute_placeholders(const char* tmpl, int w, int h, int pw, int
 static inline void draw_text_external_command(struct widget* widget, int h, int w, char* str, const char* cmd) {
 	FILE* fp = popen(cmd, "r");
 	if(fp == NULL) return; //popen failed
-	draw_lock();
-#ifdef USE_NOTCURSES
-	ncplane_erase(widget->window);
-#else
-	werase(widget->window);
-#endif
-	draw_unlock();
-	for(unsigned short i=0; i<h; i++){
-		if(fgets(str, w, fp)==NULL) break;	//exit early if command output ends
-		//if last char is a newline, remove
-		size_t len = strlen(str);
-		if(len>0 && str[len-1]=='\n'){
-			str[len-1] = '\0';
-			if(len==1){	//first and only char was a newline
-				i--;
-				continue;
-			}
+	//collect all output before touching the screen
+	int lines = 0;
+	while(lines<h){
+		char* line = str + (size_t)lines*w;
+		if(fgets(line, w, fp)==NULL) break; //exit early if command output ends
+		size_t len = strlen(line);
+		if(len>0 && line[len-1]=='\n'){ //if last char is a newline, remove
+			line[len-1] = '\0';
+			if(len==1) continue; //first and only char was a newline
 		}
-		draw_string(widget, i, 0, str);
+		lines++;
 	}
 	pclose(fp);
+	draw_lock();
+	//erase screen and draw output line by line
+#ifdef USE_NOTCURSES
+	ncplane_erase(widget->window);
+	for(int i=0; i<lines; i++) ncplane_putstr_yx(widget->window, i, 0, str + (size_t)i*w);
+#else
+	werase(widget->window);
+	for(int i=0; i<lines; i++) mvwaddstr(widget->window, i, 0, str + (size_t)i*w);
+#endif
+	draw_unlock();
 	stage_refresh(widget);
 }
 
@@ -51,7 +53,7 @@ void* text_external_command(void* input){
 	int h, w;
 	get_size(widget, &h, &w);
 	w++;	//+1 for the NULL terminator
-	char* str = malloc(w*sizeof(char));
+	char* str = malloc((size_t)h*w); //one line buffer per row
 	if(!str) return NULL; //check for failed malloc
 	int t = widget->time;
 	if (t <= 0) {
@@ -78,7 +80,7 @@ void* dynamic_text_external_command(void* input){
 	char* cmd = substitute_placeholders(widget->data, w, h, pw, ph);
 	if(!cmd) return NULL;
 	w++;	//+1 for the NULL terminator
-	char* str = malloc(w*sizeof(char));
+	char* str = malloc((size_t)h*w); //one line buffer per row
 	if(!str){ free(cmd); return NULL; } //check for failed malloc
 	int t = widget->time;
 	if (t <= 0) {
