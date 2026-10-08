@@ -36,11 +36,7 @@ static inline void draw_text_external_command(struct widget* widget, int h, int 
 	}
 	pclose(fp);
 	draw_lock();
-#ifdef USE_NOTCURSES
-	ncplane_erase(widget->window);
-#else
-	werase(widget->window);
-#endif
+	clear_widget_locked(widget);
 	for(int i=0; i<lines; i++) draw_string_locked(widget, i, 0, str + (size_t)i*w);
 	draw_unlock();
 	stage_refresh(widget);
@@ -127,11 +123,7 @@ static void ec_cleanup(void* arg) {
 //render the current vterm screen contents to the widget's window
 static inline void render_vterm_screen(struct widget* widget, VTermScreen* vts, int h, int w) {
 	draw_lock(); //serialize the direct backend drawing below against the render loop
-#ifdef USE_NOTCURSES
-	ncplane_erase(widget->window);
-#else
-	werase(widget->window);
-#endif
+	clear_widget_locked(widget);
 
 	VTermPos pos;
 	for (pos.row = 0; pos.row < h; pos.row++) { //iterate over rows
@@ -517,7 +509,7 @@ static inline void draw_image_external_command(struct widget* widget, const char
 				.flags = NCVISUAL_OPTION_HORALIGNED | NCVISUAL_OPTION_VERALIGNED,
 			};
 			draw_lock();
-			ncplane_erase(widget->window);
+			clear_widget_locked(widget);
 			ncvisual_blit(nc, res.visual, &vopts);
 			draw_unlock();
 			stage_refresh(widget);

@@ -201,6 +201,21 @@ static inline void draw_string(struct widget* widget, int y, int x, const char* 
 	draw_unlock();
 }
 
+//clear_widget for a caller already holding draw_lock, so a clear and the redraw that follows land under one lock and the blank frame is never rendered
+static inline void clear_widget_locked(struct widget* widget){
+#ifdef USE_NOTCURSES
+	ncplane_erase(widget->window);
+#else
+	werase(widget->window);
+#endif
+}
+
+static inline void clear_widget(struct widget* widget){
+	draw_lock();
+	clear_widget_locked(widget);
+	draw_unlock();
+}
+
 //in a just-forked child, restore the default empty signal mask before exec
 static inline void reset_child_sigmask(void){
 	sigset_t empty;

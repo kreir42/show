@@ -18,11 +18,7 @@ void* timedate(void* input){
 			strftime(str, size, widget->data, tm);
 			str[size-1] = '\0'; //on overflow, strftime returns 0 and buffer is undefined, so add NULL terminator just in case
 			draw_lock();
-#ifdef USE_NOTCURSES
-			ncplane_erase(widget->window);
-#else
-			werase(widget->window);
-#endif
+			clear_widget_locked(widget);
 			draw_string_locked(widget, 0, 0, str);
 			draw_unlock();
 			stage_refresh(widget);
