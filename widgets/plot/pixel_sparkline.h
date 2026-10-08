@@ -80,7 +80,7 @@ static void pixel_sparkline_draw(struct widget* widget, struct ncplane** sprite,
 		else pixel_put(bitmap, pw, x, y, fr, fg, fb);
 		prev_y = y; have_prev = 1;
 	}
-	draw_lock(); //the plane create and blit mutate the pile; serialize them against the render loop
+	draw_lock(); //the plane create and blit mutate the pile; serialize them and the axes below against the render loop
 	if(*sprite==NULL){ //own plane for the bitmap, positioned over the plot region; a sprixel can't coexist with cell text on one plane
 		struct ncplane_options o = { .y = 0, .x = pr.left, .rows = (unsigned)h, .cols = (unsigned)w };
 		*sprite = ncplane_create(widget->window, &o);
@@ -97,7 +97,6 @@ static void pixel_sparkline_draw(struct widget* widget, struct ncplane** sprite,
 			ncvisual_destroy(v);
 		}
 	}
-	draw_unlock();
 	//axes and labels are cell text in the margins
 	if(pr.left) plot_draw_y_axis(widget, pr.left, h, lo, hi, data->flags);
 	if(pr.bottom){
@@ -108,6 +107,7 @@ static void pixel_sparkline_draw(struct widget* widget, struct ncplane** sprite,
 			plot_draw_x_labels(widget, pr.left, w, h, lspan, "0");
 		}
 	}
+	draw_unlock();
 	stage_refresh(widget);
 }
 

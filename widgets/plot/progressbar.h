@@ -15,8 +15,9 @@ static void progressbar_draw(struct widget* widget, char* buf, double f, struct 
 		idx += len;
 	}
 	buf[idx] = '\0';
+	draw_lock(); //single lock for the whole frame
 	plot_color_on(widget, data->color, data->bg_color); //the plot area carries the color; axes/labels stay terminal-default
-	for(int r=0; r<pr.h; r++) draw_string(widget, r, pr.left, buf); //same bar on every row
+	for(int r=0; r<pr.h; r++) draw_string_locked(widget, r, pr.left, buf); //same bar on every row
 	plot_color_off(widget, data->color, data->bg_color);
 	if(pr.bottom){ //bars already drawn, so buf is free to reuse as the baseline scratch
 		plot_draw_x_axis(widget, buf, pr.left, pr.w, pr.h);
@@ -28,6 +29,7 @@ static void progressbar_draw(struct widget* widget, char* buf, double f, struct 
 			plot_draw_x_labels(widget, pr.left, pr.w, pr.h, lo, hi);
 		}
 	}
+	draw_unlock();
 	stage_refresh(widget);
 }
 
@@ -36,16 +38,18 @@ static void vertical_progressbar_draw(struct widget* widget, char* full_row, cha
 	long eighths = lround(f * pr.h * 8);
 	int full = eighths/8, rem = eighths%8;
 	if(rem) plot_fill_row(part_row, plot_fill_vertical[rem], pr.w); //only the partial row varies per frame
+	draw_lock(); //single lock for the whole frame
 	plot_color_on(widget, data->color, data->bg_color); //the plot area carries the color; axis/labels stay terminal-default
 	for(int r=0; r<pr.h; r++){
 		int from_bottom = pr.h-1-r; //0 == bottom row
 		char* drawn = (from_bottom < full) ? full_row
 		            : (from_bottom==full && rem) ? part_row
 		            : blank_row;
-		draw_string(widget, r, pr.left, drawn);
+		draw_string_locked(widget, r, pr.left, drawn);
 	}
 	plot_color_off(widget, data->color, data->bg_color);
 	if(pr.left) plot_draw_y_axis(widget, pr.left, pr.h, data->min, data->max, data->flags);
+	draw_unlock();
 	stage_refresh(widget);
 }
 

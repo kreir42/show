@@ -43,38 +43,30 @@ static short plot_color_index(uint32_t color){
 }
 #endif
 
-//turn on the plot's foreground/background color for the cells drawn next. a 0 color/bg leaves the terminal default
+//turn on the plot's foreground/background color for the cells drawn next. a 0 color/bg leaves the terminal default. call while holding draw_lock
 static inline void plot_color_on(struct widget* widget, uint32_t color, uint32_t bg_color){
 #ifdef USE_NOTCURSES
-	draw_lock();
 	if(color==0) ncplane_set_fg_default(widget->window);
 	else ncplane_set_fg_rgb8(widget->window, (color>>16)&0xff, (color>>8)&0xff, color&0xff);
 	if(bg_color==0) ncplane_set_bg_default(widget->window);
 	else ncplane_set_bg_rgb8(widget->window, (bg_color>>16)&0xff, (bg_color>>8)&0xff, bg_color&0xff);
-	draw_unlock();
 #else
 	if(color==0 && bg_color==0) return; //both default: nothing to set
-	draw_lock();
 	short pair = get_color_pair(plot_color_index(color), plot_color_index(bg_color));
 	if(pair!=0) wattron(widget->window, COLOR_PAIR(pair));
-	draw_unlock();
 #endif
 }
 
-//revert to the terminal default colors, so the axes and labels aren't tinted by the plot color
+//revert to the terminal default colors, so the axes and labels aren't tinted by the plot color. call while holding draw_lock
 static inline void plot_color_off(struct widget* widget, uint32_t color, uint32_t bg_color){
 #ifdef USE_NOTCURSES
 	(void)color; (void)bg_color;
-	draw_lock();
 	ncplane_set_fg_default(widget->window);
 	ncplane_set_bg_default(widget->window);
-	draw_unlock();
 #else
 	if(color==0 && bg_color==0) return; //color was never turned on
-	draw_lock();
 	short pair = get_color_pair(plot_color_index(color), plot_color_index(bg_color));
 	if(pair!=0) wattroff(widget->window, COLOR_PAIR(pair)); //clears just the color bits, leaving any bold/italic
-	draw_unlock();
 #endif
 }
 
@@ -115,7 +107,7 @@ static void plot_format_span(long secs, char* out, size_t cap){
 	else                  snprintf(out, cap, "-%ldd", secs/86400);
 }
 
-//draw the left Y-axis line over rows [0,plot_h). with LABEL_Y_AXIS, label hi at the top row and lo at the bottom row. the axis line sits at column left-1, labels right-aligned in the columns before it
+//draw the left Y-axis line over rows [0,plot_h). with LABEL_Y_AXIS, label hi at the top row and lo at the bottom row. the axis line sits at column left-1, labels right-aligned in the columns before it. call while holding draw_lock
 static void plot_draw_y_axis(struct widget* widget, int left, int plot_h, double lo, double hi, int flags){
 	int labeled = (flags & LABEL_Y_AXIS) && left > 1;
 	for(int r=0; r<plot_h; r++){
@@ -126,27 +118,27 @@ static void plot_draw_y_axis(struct widget* widget, int left, int plot_h, double
 			else if(r==plot_h-1) plot_format_value(lo, field, sizeof(field), PLOT_YLABEL_W);
 			char padded[PLOT_YLABEL_W+1];
 			snprintf(padded, sizeof(padded), "%*s", PLOT_YLABEL_W, field); //right-align next to the axis
-			draw_string(widget, r, 0, padded);
+			draw_string_locked(widget, r, 0, padded);
 		}
-		draw_string(widget, r, left-1, tick ? PLOT_YTICK : PLOT_VLINE);
+		draw_string_locked(widget, r, left-1, tick ? PLOT_YTICK : PLOT_VLINE);
 	}
 }
 
-//draw the X-axis baseline at row plot_h spanning [left, left+plot_w), plus the corner where it meets a Y axis. scratch must hold at least plot_w*3+1 bytes
+//draw the X-axis baseline at row plot_h spanning [left, left+plot_w), plus the corner where it meets a Y axis. scratch must hold at least plot_w*3+1 bytes. call while holding draw_lock
 static void plot_draw_x_axis(struct widget* widget, char* scratch, int left, int plot_w, int plot_h){
-	if(left>0) draw_string(widget, plot_h, left-1, PLOT_LLCORNER);
+	if(left>0) draw_string_locked(widget, plot_h, left-1, PLOT_LLCORNER);
 	plot_fill_row(scratch, PLOT_HLINE, plot_w);
-	draw_string(widget, plot_h, left, scratch);
+	draw_string_locked(widget, plot_h, left, scratch);
 }
 
-//draw a left-aligned and a right-aligned ASCII label on the X-axis label row (plot_h+1), within [left, left+plot_w). the right label is skipped if it would collide with the left one
+//draw a left-aligned and a right-aligned ASCII label on the X-axis label row (plot_h+1), within [left, left+plot_w). the right label is skipped if it would collide with the left one. call while holding draw_lock
 static void plot_draw_x_labels(struct widget* widget, int left, int plot_w, int plot_h, const char* lstr, const char* rstr){
 	int row = plot_h+1;
 	int llen = lstr ? (int)strlen(lstr) : 0;
-	if(llen) draw_string(widget, row, left, lstr);
+	if(llen) draw_string_locked(widget, row, left, lstr);
 	if(rstr && rstr[0]){
 		int rx = left + plot_w - (int)strlen(rstr);
-		if(rx > left + llen) draw_string(widget, row, rx, rstr);
+		if(rx > left + llen) draw_string_locked(widget, row, rx, rstr);
 	}
 }
 

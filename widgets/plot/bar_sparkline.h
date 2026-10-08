@@ -21,6 +21,7 @@ static void bar_sparkline_draw(struct widget* widget, char* rowbuf, int* col_eig
 		if(f<0) f = 0; else if(f>1) f = 1; //clamp to [0,1]
 		col_eighths[c] = lround(f * h * 8);
 	}
+	draw_lock(); //single lock for the whole frame
 	plot_color_on(widget, data->color, data->bg_color); //the plot area carries the color; axes/labels stay terminal-default
 	for(int r=0; r<h; r++){
 		int from_bottom = h-1-r; //0 == bottom row
@@ -33,7 +34,7 @@ static void bar_sparkline_draw(struct widget* widget, char* rowbuf, int* col_eig
 			idx += len;
 		}
 		rowbuf[idx] = '\0';
-		draw_string(widget, r, pr.left, rowbuf);
+		draw_string_locked(widget, r, pr.left, rowbuf);
 	}
 	plot_color_off(widget, data->color, data->bg_color);
 	if(pr.left) plot_draw_y_axis(widget, pr.left, h, lo, hi, data->flags);
@@ -45,6 +46,7 @@ static void bar_sparkline_draw(struct widget* widget, char* rowbuf, int* col_eig
 			plot_draw_x_labels(widget, pr.left, w, h, lspan, "0");
 		}
 	}
+	draw_unlock();
 	stage_refresh(widget);
 }
 
