@@ -36,14 +36,12 @@ static inline void draw_text_external_command(struct widget* widget, int h, int 
 	}
 	pclose(fp);
 	draw_lock();
-	//erase screen and draw output line by line
 #ifdef USE_NOTCURSES
 	ncplane_erase(widget->window);
-	for(int i=0; i<lines; i++) ncplane_putstr_yx(widget->window, i, 0, str + (size_t)i*w);
 #else
 	werase(widget->window);
-	for(int i=0; i<lines; i++) mvwaddstr(widget->window, i, 0, str + (size_t)i*w);
 #endif
+	for(int i=0; i<lines; i++) draw_string_locked(widget, i, 0, str + (size_t)i*w);
 	draw_unlock();
 	stage_refresh(widget);
 }
